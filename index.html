@@ -43,6 +43,12 @@
       },
     };
   </script>
+  <script id="foodcheck-config" type="application/json">
+    {
+      "visionEndpoint": "https://proxy.devs-fed.workers.dev"
+    }
+  </script>
+
   <style>
     body {
       background: linear-gradient(160deg, #fff6f0 0%, #fffdf8 35%, #ffffff 100%);
@@ -1138,6 +1144,18 @@ function resetImage() {
  * ========================================================================== */
 function resolveVisionEndpoint() {
   const fallback = "http://localhost:8787/api/vision-detect";
+  try {
+    const el = document.getElementById("foodcheck-config");
+    if (el?.textContent) {
+      const cfg = JSON.parse(el.textContent);
+      if (cfg?.visionEndpoint && /^https?:\/\//i.test(cfg.visionEndpoint)) {
+        return cfg.visionEndpoint;
+      }
+    }
+  } catch (e) {
+    console.warn("Config embebida inválida:", e);
+  }
+
   try {
     const stored = localStorage.getItem("foodcheck:vision-endpoint");
     if (stored && /^https?:\/\//i.test(stored)) {
