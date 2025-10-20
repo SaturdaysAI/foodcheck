@@ -1,0 +1,2602 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FoodCheck</title>
+  <meta name="description"
+    content="Asesor nutricional asistido por registros manuales con datos de OpenFoodFacts y almacenamiento local." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Montserrat", "system-ui", "sans-serif"],
+            display: ["Montserrat", "system-ui", "sans-serif"],
+          },
+          colors: {
+            brand: {
+              50: "#FFF6F0",
+              100: "#FFE4D9",
+              200: "#FFC6B0",
+              300: "#FFA27F",
+              400: "#FF7C4E",
+              500: "#F95C27",
+              600: "#D5441F",
+              700: "#A3311A",
+              800: "#722115",
+              900: "#4A150F",
+            },
+            accent: {
+              green: "#54C36A",
+              amber: "#FDBA4E",
+              red: "#F95E5E",
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      background: linear-gradient(160deg, #fff6f0 0%, #fffdf8 35%, #ffffff 100%);
+      color: #1f2937;
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app-main {
+      width: 100%;
+      padding: 1.5rem 1rem 2.5rem;
+    }
+
+    .app-shell {
+      display: grid;
+      gap: 1.25rem;
+      margin: 0 auto;
+      max-width: 1200px;
+    }
+
+    .profile-card {
+      border: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 1.5rem;
+      padding: 0;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .profile-card summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .profile-card-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .profile-card-summary:focus-visible {
+      outline: 2px solid rgba(249, 92, 39, 0.4);
+      outline-offset: 4px;
+    }
+
+    .profile-card-panel {
+      padding: 0 1.25rem 1.25rem;
+    }
+
+    .profile-summary-tags {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-weight: 600;
+      color: #0f172a;
+      background: rgba(249, 92, 39, 0.08);
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      appearance: none;
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .profile-summary-tags:hover {
+      background: rgba(249, 92, 39, 0.12);
+      border-color: rgba(249, 92, 39, 0.3);
+      box-shadow: 0 10px 18px rgba(249, 92, 39, 0.12);
+    }
+
+    .profile-summary-tags:focus-visible {
+      outline: none;
+      border-color: rgba(249, 92, 39, 0.55);
+      box-shadow: 0 0 0 3px rgba(249, 92, 39, 0.25);
+    }
+
+    .profile-card[open] .profile-summary-tags {
+      background: rgba(249, 92, 39, 0.12);
+    }
+
+    .media-row,
+    .insights-row {
+      display: grid;
+      gap: 1.25rem;
+      align-items: stretch;
+    }
+
+    .media-panel {
+      display: flex;
+      height: clamp(360px, 58vh, 520px);
+    }
+
+    #drop-zone:focus-within {
+      border-color: rgba(249, 92, 39, 0.45);
+      box-shadow: 0 0 0 4px rgba(249, 92, 39, 0.12);
+    }
+
+    .media-panel #drop-zone {
+      flex: 1;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #results-area.detections-card {
+      display: flex;
+      min-height: 0;
+      height: clamp(360px, 58vh, 520px);
+    }
+
+    .detections-card__inner {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      height: 100%;
+    }
+
+    #detections-container {
+      flex: 1;
+      display: grid;
+      gap: 0.75rem;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+      margin-right: -0.5rem;
+      scroll-behavior: smooth;
+    }
+
+    #detections-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #detections-container::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.45);
+      border-radius: 999px;
+    }
+
+    #drop-preview {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    #drop-preview[data-visible="true"] {
+      display: flex;
+    }
+
+    #drop-preview>div:first-child {
+      margin-top: 0;
+    }
+
+    #drop-preview .relative.aspect-\[4\/3\] {
+      flex: 1;
+      min-height: 0;
+    }
+
+    #meal-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .detections-footer {
+      margin-top: auto;
+      padding-top: 1.5rem;
+    }
+
+    #nutrition-summary {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      gap: 1rem;
+      justify-content: space-between;
+    }
+
+    #nutrition-summary .macro-ring {
+      margin: 0;
+    }
+
+    .nutrition-content {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      width: 100%;
+      flex: 1;
+      justify-content: space-between;
+    }
+
+    .nutrition-metrics {
+      flex: 1;
+      display: grid;
+      gap: 0.5rem;
+      align-content: flex-start;
+    }
+
+    #dietitian-section {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .insights-row>section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .daily-context {
+      grid-column: span 12;
+    }
+
+    .daily-overview {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 768px) {
+      .daily-overview {
+        flex-direction: row;
+        align-items: center;
+      }
+    }
+
+    .daily-ring-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      min-width: 200px;
+    }
+
+    .daily-ring-wrap .macro-ring::before {
+      content: "??";
+    }
+
+    .daily-ring-legend {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.72rem;
+      color: #475569;
+      justify-content: center;
+    }
+
+    .daily-ring-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .daily-progress-list {
+      flex: 1;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .food-option {
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 0.75rem;
+      background: #f8fafc;
+      display: grid;
+      gap: 0.35rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .food-option-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .food-option-title {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .food-option-brand {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    .food-option-origin {
+      font-size: 0.68rem;
+      color: #94a3b8;
+    }
+
+    .food-option-macros {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      color: #475569;
+    }
+
+    .food-option input[type="radio"] {
+      accent-color: #F95C27;
+    }
+
+    .food-option.active {
+      border-color: rgba(249, 92, 39, 0.55);
+      background: rgba(249, 92, 39, 0.08);
+      box-shadow: 0 12px 24px rgba(249, 92, 39, 0.12);
+    }
+
+    @media (min-width: 1024px) {
+      .app-main {
+        padding: 2.5rem 2.25rem 3rem;
+      }
+
+      .app-shell {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        align-items: start;
+      }
+
+      .profile-card {
+        grid-column: span 12;
+      }
+
+      .media-row {
+        grid-column: span 12;
+        grid-template-columns: minmax(0, 5.5fr) minmax(0, 6.5fr);
+        align-items: stretch;
+      }
+
+      .insights-row {
+        grid-column: span 12;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+      }
+    }
+
+    h1,
+    h2,
+    h3,
+    .font-display {
+      font-family: "Montserrat", system-ui, sans-serif;
+      letter-spacing: -0.01em;
+    }
+
+    .macro-ring {
+      width: 110px;
+      height: 110px;
+      border-radius: 9999px;
+      background: conic-gradient(rgba(84, 195, 106, 0.9) 0deg var(--protein-angle, 0deg),
+          rgba(253, 186, 78, 0.85) var(--protein-angle, 0deg) calc(var(--protein-angle, 0deg) + var(--carbs-angle, 0deg)),
+          rgba(249, 94, 94, 0.85) calc(var(--protein-angle, 0deg) + var(--carbs-angle, 0deg)) calc(var(--protein-angle, 0deg) + var(--carbs-angle, 0deg) + var(--fat-angle, 0deg)),
+          rgba(148, 163, 184, 0.25) calc(var(--protein-angle, 0deg) + var(--carbs-angle, 0deg) + var(--fat-angle, 0deg)) 360deg);
+      position: relative;
+    }
+
+    .macro-ring::after {
+      content: attr(data-kcal);
+      position: absolute;
+      inset: 20%;
+      border-radius: 9999px;
+      background: #ffffff;
+      display: grid;
+      place-items: center;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .macro-ring::before {
+      content: "???";
+      position: absolute;
+      inset: 32%;
+      display: grid;
+      place-items: center;
+      font-size: 1.2rem;
+    }
+
+    #nutrition-summary[data-disabled="true"] {
+      opacity: 0.55;
+      transition: opacity 0.3s ease, filter 0.3s ease;
+    }
+
+    #nutrition-summary[data-disabled="true"] .macro-ring::after,
+    #nutrition-summary[data-disabled="true"] .macro-ring::before {
+      opacity: 0.7;
+    }
+
+    #nutrition-summary[data-disabled="true"] #macro-legend {
+      opacity: 0.7;
+    }
+
+    #dietitian-section[data-disabled="true"] {
+      opacity: 0.55;
+      transition: opacity 0.3s ease, filter 0.3s ease;
+    }
+
+    #dietitian-section[data-disabled="true"] ul {
+      opacity: 0.7;
+    }
+
+    dialog::backdrop {
+      background: rgba(15, 23, 42, 0.35);
+      backdrop-filter: blur(4px);
+    }
+
+    dialog form {
+      padding: 1.75rem;
+      margin: 0;
+      font-family: "Montserrat", system-ui, sans-serif;
+    }
+
+    .confidence-dot {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: inline-flex;
+      width: 12px;
+      height: 12px;
+      border-radius: 9999px;
+      border: 2px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .confidence-dot[data-level="alta"] {
+      background: var(--confidence-high, #54c36a);
+    }
+
+    .confidence-dot[data-level="media"] {
+      background: var(--confidence-medium, #fdba4e);
+    }
+
+    .confidence-dot[data-level="baja"],
+    .confidence-dot[data-level="muy-baja"] {
+      background: var(--confidence-low, #f95e5e);
+    }
+
+    .app-icon {
+      background: conic-gradient(from 135deg, #ffa27f, #f95c27 45%, #f95e5e 75%, #ffa27f);
+      box-shadow: 0 10px 25px rgba(249, 92, 39, 0.25);
+    }
+
+    [data-card] {
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    [data-card]:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 35px rgba(249, 92, 39, 0.15);
+      border-color: rgba(249, 92, 39, 0.35);
+    }
+
+    .nutrient-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .nutrient-row+.nutrient-row {
+      margin-top: 0.35rem;
+    }
+
+    .nutrient-subrow {
+      padding-left: 1.25rem;
+      font-size: 0.72rem;
+      color: #475569;
+    }
+
+    .nutrient-subrow span:last-child {
+      color: #334155;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen antialiased text-slate-900">
+  <header class="sticky top-0 z-40 bg-white/90 border-b border-slate-200 shadow-sm backdrop-blur">
+    <div class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 px-4 py-4 lg:px-6">
+      <div class="flex items-center gap-3">
+        <span
+          class="app-icon inline-flex h-11 w-11 items-center justify-center rounded-3xl font-display text-base font-semibold text-white"
+          aria-hidden="true">
+          FC
+        </span>
+        <div>
+          <p class="font-display text-lg font-semibold tracking-tight text-brand-900">FoodCheck</p>
+          <p class="text-xs text-slate-600">Estimaciones nutricionales personalizadas.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="app-main">
+    <div class="app-shell">
+      <details id="profile-card" class="profile-card" data-card aria-labelledby="condiciones-titulo">
+        <summary class="profile-card-summary">
+          <div>
+            <h2 id="condiciones-titulo" class="font-display text-lg font-semibold text-brand-900 tracking-tight">Tu
+              perfil</h2>
+            <p id="profile-summary-text" class="text-[11px] text-slate-500">Selecciona tus condiciones para personalizar
+              las sugerencias.</p>
+          </div>
+          <button id="profile-summary-tags" type="button" class="profile-summary-tags text-xs text-slate-600">
+            Sin condiciones seleccionadas
+          </button>
+        </summary>
+        <div class="profile-card-panel text-xs text-slate-600">
+          <p class="text-[11px] text-slate-500">Marca las condiciones que apliquen para ajustar los objetivos sugeridos.
+          </p>
+          <div id="profile-form" class="mt-3 grid gap-1.5 sm:grid-cols-2">
+            <label class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-3 py-1.5">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-400 text-brand-500 focus:ring-brand-400"
+                data-condition="diabetes" />
+              <span>Diabetes</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-3 py-1.5">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-400 text-brand-500 focus:ring-brand-400"
+                data-condition="renal" />
+              <span>Insuficiencia renal</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-3 py-1.5">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-400 text-brand-500 focus:ring-brand-400"
+                data-condition="hipertension" />
+              <span>Hipertensión</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-3 py-1.5">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-400 text-brand-500 focus:ring-brand-400"
+                data-condition="hipercolesterolemia" />
+              <span>Hipercolesterolemia</span>
+            </label>
+          </div>
+          <div class="mt-3 rounded-2xl border border-brand-300/50 bg-brand-50 px-3 py-2 text-[11px] text-brand-700">
+            Guardamos tus preferencias localmente para que la app funcione incluso sin conexión.
+          </div>
+        </div>
+      </details>
+      <div class="media-row">
+        <div class="media-panel">
+          <div id="drop-zone"
+            class="group relative flex min-h-[260px] flex-col justify-center rounded-3xl border border-dashed border-brand-300 bg-white px-5 py-6 text-center shadow-sm transition hover:border-brand-400 hover:shadow-lg focus-within:border-brand-400"
+            role="region" aria-label="Carga una foto del plato">
+            <input id="file-input" type="file" accept="image/*"
+              class="absolute inset-0 cursor-pointer opacity-0 focus:outline-none focus:ring-0 focus-visible:outline-none"
+              aria-label="Seleccionar imagen del plato" />
+            <div id="drop-instructions" class="pointer-events-none flex flex-col items-center gap-3">
+              <span
+                class="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/15 text-2xl text-brand-500"
+                aria-hidden="true">&#x1F37D;&#xFE0F;</span>
+              <div class="text-center">
+                <p class="font-display text-xl font-semibold text-slate-900">Arrastra una foto o toca para seleccionar
+                </p>
+                <p class="mt-1 text-xs text-slate-600">
+                  Selecciona una fotografía donde los alimentos se distingan claramente.
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-500">
+                <span class="rounded-full border border-slate-200 px-3 py-1">Formatos: JPG/PNG/HEIC · máx. 10 MB</span>
+              </div>
+            </div>
+            <div id="drop-preview" class="pointer-events-auto hidden space-y-3 text-left" aria-live="polite">
+              <div class="relative aspect-[4/3] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <button id="reset-image" type="button"
+                  class="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/85 text-slate-500 shadow transition hover:bg-brand-100 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                  aria-label="Quitar imagen">
+                  &times;
+                </button>
+                <div id="drop-preview-title"
+                  class="absolute left-4 top-3 z-10 hidden rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-brand-800 shadow">
+                  Vista del plato
+                </div>
+                <img id="meal-image" src="" alt="Plato analizado"
+                  class="h-full w-full object-cover opacity-0 transition-opacity duration-300" />
+                <div id="image-overlay-message"
+                  class="pointer-events-none absolute inset-x-4 bottom-4 hidden rounded-2xl border border-amber-400/40 bg-white px-4 py-3 text-xs text-amber-700 shadow-lg">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <section id="results-area" class="detections-card">
+          <div class="detections-card__inner rounded-3xl border border-slate-200 bg-white px-4 py-5 shadow-sm lg:px-6">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 class="font-display text-lg font-semibold text-brand-800">Alimentos detectados</h2>
+                <p class="text-xs text-slate-600">
+                  Puedes ajustar las porciones y seleccionar el aceite (ml) añadido. Si no se han detectado todos los alimentos, añádelos manualmente.
+                </p>
+              </div>
+              <button id="add-food-button" type="button"
+                class="inline-flex items-center gap-2 rounded-full border border-brand-400/70 bg-brand-500/10 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+                <span aria-hidden="true">&#x2795;</span>
+                Añadir alimento
+              </button>
+            </div>
+            <div id="food-items-container" class="mt-4 grid gap-3 max-h-96 overflow-y-auto pr-2">
+              <div
+                class="grid h-full place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600 text-center leading-relaxed">
+                Todavía no hay alimentos en la lista.<br />Usa el botón "Añadir alimento" para empezar.
+              </div>
+            </div>
+            <div class="detections-footer flex flex-wrap items-center justify-between gap-3">
+              <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                <button id="save-meal-button" type="button"
+                  class="inline-flex items-center gap-2 rounded-full bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+                  <span aria-hidden="true">&#x1F4BE;</span>
+                  Guardar comida
+                </button>
+                <span>Se sumará a tu registro del <span id="current-date-label"></span>.</span>
+                <span id="food-status-message" class="hidden text-brand-700 font-semibold"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="insights-row">
+        <section id="nutrition-summary" data-disabled="true"
+          class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-colors">
+          <h2 class="font-display text-lg font-semibold text-brand-800">Resumen nutricional</h2>
+          <p class="mt-1 text-xs text-slate-600">
+            Ajustamos los valores automáticamente según porción y tus condiciones personales.
+          </p>
+          <div class="mt-4 nutrition-content text-sm">
+            <div class="flex flex-col items-center gap-3">
+              <div id="macro-ring" class="macro-ring" data-kcal="0 kcal"
+                style="--protein-angle: 0deg; --carbs-angle: 0deg; --fat-angle: 0deg"
+                aria-label="Distribución de macronutrientes"
+                title="Verde: proteína · Amarillo: carbohidratos · Coral: grasas"></div>
+              <div class="flex flex-wrap items-center justify-center gap-3 text-[11px] text-slate-500"
+                id="macro-legend">
+                <span class="flex items-center gap-2"><span
+                    class="inline-block h-2.5 w-2.5 rounded-full bg-accent-green"></span>Proteínas</span>
+                <span class="flex items-center gap-2"><span
+                    class="inline-block h-2.5 w-2.5 rounded-full bg-accent-amber"></span>Carbohidratos</span>
+                <span class="flex items-center gap-2"><span
+                    class="inline-block h-2.5 w-2.5 rounded-full bg-accent-red"></span>Grasas</span>
+              </div>
+            </div>
+            <div id="nutrient-totals" class="nutrition-metrics text-xs text-slate-600"></div>
+          </div>
+        </section>
+        <section id="dietitian-section" data-disabled="true"
+          class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 class="font-display text-lg font-semibold text-brand-800">Asistente dietista</h3>
+          <p class="mt-1 text-xs text-slate-600">Sugerencias automáticas según tus objetivos y el plato analizado.</p>
+          <ul id="dietitian-suggestions" class="mt-3 space-y-2 text-xs text-slate-700" aria-live="polite"></ul>
+          <div class="mt-4 rounded-2xl border border-amber-400/40 bg-amber-100 px-3 py-2 text-[11px] text-amber-800">
+            Consulta siempre a personal sanitario cualificado. Estas recomendaciones no sustituyen una valoración
+            profesional.
+          </div>
+        </section>
+      </div>
+      <section class="daily-context rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 class="font-display text-lg font-semibold text-brand-800">Registro diario</h3>
+            <p class="text-xs text-slate-600">Seguimiento automático de tus ingestas diarias. Registra tus comidas del
+              día para visualizar en detalle su aporte nutricional.</p>
+          </div>
+          <button id="clear-day-button" type="button"
+            class="rounded-full border border-slate-200 px-3 py-1 text-[11px] text-slate-600 hover:border-accent-red/40 hover:text-accent-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-red/40">
+            Reiniciar día
+          </button>
+        </div>
+        <div class="daily-overview mt-4">
+          <div class="daily-ring-wrap">
+            <div id="daily-macro-ring" class="macro-ring" data-kcal="0%"
+              style="--protein-angle: 0deg; --carbs-angle: 0deg; --fat-angle: 0deg"
+              aria-label="Distribución diaria frente a objetivos"
+              title="Verde: proteína · Amarillo: carbohidratos · Coral: grasas"></div>
+            <div class="daily-ring-legend">
+              <span><span class="inline-block h-2.5 w-2.5 rounded-full bg-accent-green"></span>Proteína</span>
+              <span><span class="inline-block h-2.5 w-2.5 rounded-full bg-accent-amber"></span>Carbohidratos</span>
+              <span><span class="inline-block h-2.5 w-2.5 rounded-full bg-accent-red"></span>Grasas</span>
+            </div>
+          </div>
+          <div class="daily-progress-list" id="daily-progress-container"></div>
+        </div>
+        <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <p id="daily-summary-text"></p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="mt-8 border-t border-slate-200 bg-white">
+    <div
+      class="mx-auto flex max-w-[1200px] flex-col gap-2 px-4 py-4 text-[11px] text-slate-500 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+      <p>FoodCheck · Datos estimados · Última actualización: <span id="build-date"></span></p>
+      <p>Privacidad: toda la información se guarda localmente en tu dispositivo.</p>
+    </div>
+  </footer>
+  <dialog id="food-modal" aria-labelledby="food-modal-title">
+    <form id="food-form" class="space-y-3 text-sm text-slate-700">
+      <div>
+        <h2 id="food-modal-title" class="font-display text-lg font-semibold text-brand-800">Añadir o editar alimento
+        </h2>
+        <p class="text-xs text-slate-500">Ajusta la información y, si deseas, vuelve a consultar OpenFoodFacts.
+        </p>
+      </div>
+      <label class="grid gap-1">
+        <span>Nombre</span>
+        <input id="food-name-input" name="name" type="text" required
+          class="rounded-xl border border-slate-200 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-300" />
+      </label>
+      <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+        <button type="button" id="food-search-button"
+          class="inline-flex items-center gap-1 rounded-full border border-brand-400/70 px-3 py-1 text-brand-700 hover:bg-brand-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+          <span aria-hidden="true">&#x1F50D;</span>
+          Buscar coincidencias
+        </button>
+        <span id="food-search-feedback" class="text-[11px] text-slate-400"></span>
+      </div>
+      <div id="food-search-results" class="hidden space-y-2 text-xs text-slate-600">
+        <p class="text-[11px] text-slate-500">Selecciona la opción que mejor coincida con tu alimento:</p>
+        <div id="food-search-options" class="grid gap-2"></div>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <label class="grid gap-1">
+          <span>Cantidad</span>
+          <input id="food-amount-input" name="amount" type="number" min="0" step="1" required
+            class="rounded-xl border border-slate-200 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-300" />
+        </label>
+        <label class="grid gap-1">
+          <span>Unidad</span>
+          <select id="food-unit-select" name="unit"
+            class="rounded-xl border border-slate-200 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-300">
+            <option value="g">gramos (g)</option>
+            <option value="ml">mililitros (ml)</option>
+            <option value="pieza">pieza</option>
+            <option value="taza">taza</option>
+          </select>
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 text-xs">
+        <button type="button" id="cancel-food-modal"
+          class="rounded-full border border-slate-200 px-3 py-1 text-slate-600 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200">Cancelar</button>
+        <button type="submit"
+          class="rounded-full bg-brand-500 px-3 py-1 text-white hover:bg-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+/* ============================================================================
+ * FoodCheck: Configuración global
+ * ========================================================================== */
+const STORAGE_KEYS = {
+  preferences: "foodcheck:preferences",
+  dailyLog: "foodcheck:dailyLog",
+};
+
+const DEFAULT_CONDITIONS = {
+  diabetes: false,
+  renal: false,
+  hipertension: false,
+  hipercolesterolemia: false,
+};
+
+const CONDITION_LABELS = {
+  diabetes: "Diabetes",
+  renal: "Enfermedad renal",
+  hipertension: "Hipertensión",
+  hipercolesterolemia: "Hipercolesterolemia",
+};
+
+const DAILY_REFERENCE_TARGETS = {
+  calories: 2000,
+  protein: 110,
+  carbs: 240,
+  fat: 70,
+  fiber: 30,
+  sugar: 50,
+  sodium: 1800,
+};
+
+const FOOD_SEARCH_LIMITS = {
+  openFoodFacts: 10,
+};
+
+const VISION_CONFIG = {
+  endpoint: resolveVisionEndpoint(),
+  prompt: "Identifica los alimentos principales del plato y delimítalos.",
+};
+
+const UNIT_CONVERSIONS = {
+  g: 1,
+  ml: 1,
+  pieza: 80,
+  taza: 150,
+};
+
+const NUMBER_FORMATTERS = {
+  calories: new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }),
+  macro: new Intl.NumberFormat("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 1 }),
+  macroSmall: new Intl.NumberFormat("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+};
+
+/* ============================================================================
+ * FoodCheck: Estado y referencias al DOM
+ * ========================================================================== */
+const state = {
+  image: null,
+  foodItems: [],
+  userConditions: structuredClone(DEFAULT_CONDITIONS),
+  dailyLog: {},
+  currentDate: new Date().toISOString().slice(0, 10),
+  foodSearch: {
+    results: [],
+    selectedId: null,
+    status: "idle",
+    lastQuery: "",
+  },
+  vision: {
+    status: "idle",
+    error: null,
+    detections: [],
+  },
+};
+
+const dom = {
+  dropZone: document.getElementById("drop-zone"),
+  dropInstructions: document.getElementById("drop-instructions"),
+  dropPreview: document.getElementById("drop-preview"),
+  dropPreviewTitle: document.getElementById("drop-preview-title"),
+  profileCard: document.getElementById("profile-card"),
+  profileSummaryText: document.getElementById("profile-summary-text"),
+  profileSummaryTags: document.getElementById("profile-summary-tags"),
+  fileInput: document.getElementById("file-input"),
+  mealImage: document.getElementById("meal-image"),
+  overlayMessage: document.getElementById("image-overlay-message"),
+  resetImage: document.getElementById("reset-image"),
+  foodItemsContainer: document.getElementById("food-items-container"),
+  nutritionSummary: document.getElementById("nutrition-summary"),
+  macroRing: document.getElementById("macro-ring"),
+  dailyMacroRing: document.getElementById("daily-macro-ring"),
+  nutrientTotals: document.getElementById("nutrient-totals"),
+  dietitianSection: document.getElementById("dietitian-section"),
+  addFoodButton: document.getElementById("add-food-button"),
+  saveMealButton: document.getElementById("save-meal-button"),
+  currentDateLabel: document.getElementById("current-date-label"),
+  dailyProgressContainer: document.getElementById("daily-progress-container"),
+  dailySummaryText: document.getElementById("daily-summary-text"),
+  dietitianSuggestions: document.getElementById("dietitian-suggestions"),
+  clearDayButton: document.getElementById("clear-day-button"),
+  buildDate: document.getElementById("build-date"),
+  foodNameInput: document.getElementById("food-name-input"),
+  foodSearchButton: document.getElementById("food-search-button"),
+  foodSearchResults: document.getElementById("food-search-results"),
+  foodSearchOptions: document.getElementById("food-search-options"),
+  foodSearchFeedback: document.getElementById("food-search-feedback"),
+  foodStatusMessage: document.getElementById("food-status-message"),
+};
+
+const modals = {
+  food: document.getElementById("food-modal"),
+  foodForm: document.getElementById("food-form"),
+};
+
+const conditionCheckboxes = document.querySelectorAll("input[data-condition]");
+
+let activeFoodId = null;
+let foodSearchDebounce = null;
+let foodSearchAbortController = null;
+let overlayTimeout = null;
+let visionAbortController = null;
+
+/* ============================================================================
+ * Inicio de la aplicación
+ * ========================================================================== */
+initApp();
+
+/**
+ * Arranca la aplicación cargando el estado inicial y enlazando los eventos de UI.
+ */
+function initApp() {
+  hydrateFromStorage();
+  setupEventListeners();
+  renderAll();
+  dom.buildDate.textContent = new Date().toLocaleDateString("es-ES", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/* ============================================================================
+ * Persistencia en localStorage
+ * ========================================================================== */
+/**
+ * Carga las preferencias guardadas y sincroniza la interfaz.
+ */
+function hydrateFromStorage() {
+  const storedPrefsRaw =
+    localStorage.getItem(STORAGE_KEYS.preferences) ?? localStorage.getItem("nutrivision:preferences");
+  if (storedPrefsRaw) {
+    try {
+      const parsed = JSON.parse(storedPrefsRaw);
+      const savedConditions =
+        parsed && typeof parsed === "object" && parsed.conditions && typeof parsed.conditions === "object"
+          ? parsed.conditions
+          : parsed;
+      state.userConditions = { ...DEFAULT_CONDITIONS, ...savedConditions };
+    } catch (error) {
+      console.warn("No se pudieron cargar las condiciones guardadas:", error);
+    }
+    localStorage.removeItem("nutrivision:preferences");
+  }
+
+  const storedLogRaw =
+    localStorage.getItem(STORAGE_KEYS.dailyLog) ?? localStorage.getItem("nutrivision:dailyLog");
+  if (storedLogRaw) {
+    try {
+      state.dailyLog = JSON.parse(storedLogRaw) ?? {};
+    } catch (error) {
+      console.warn("No se pudo cargar el registro diario guardado:", error);
+    }
+    localStorage.removeItem("nutrivision:dailyLog");
+  }
+
+  conditionCheckboxes.forEach((checkbox) => {
+    checkbox.checked = !!state.userConditions[checkbox.dataset.condition];
+  });
+
+  dom.currentDateLabel.textContent = new Date(state.currentDate).toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+/**
+ * Guarda condiciones y registro de comidas en localStorage.
+ */
+function persistState() {
+  localStorage.setItem(
+    STORAGE_KEYS.preferences,
+    JSON.stringify({ conditions: state.userConditions })
+  );
+  localStorage.setItem(STORAGE_KEYS.dailyLog, JSON.stringify(state.dailyLog));
+}
+
+/* ============================================================================
+ * Registro de eventos principales
+ * ========================================================================== */
+/**
+ * Conecta los eventos de la UI con sus controladores.
+ */
+function setupEventListeners() {
+  dom.fileInput.addEventListener("change", handleFileSelection);
+  dom.dropZone.addEventListener("dragover", handleDragOver);
+  dom.dropZone.addEventListener("dragleave", () =>
+    dom.dropZone.classList.remove("ring-4", "ring-brand-400/40")
+  );
+  dom.dropZone.addEventListener("drop", handleFileDrop);
+  dom.resetImage.addEventListener("click", resetImage);
+
+  if (dom.profileSummaryTags) {
+    dom.profileSummaryTags.addEventListener("click", handleProfileSummaryShortcut);
+  }
+  conditionCheckboxes.forEach((checkbox) =>
+    checkbox.addEventListener("change", handleConditionToggle)
+  );
+
+  dom.addFoodButton.addEventListener("click", () => openFoodModal());
+  dom.saveMealButton.addEventListener("click", saveCurrentMealToHistory);
+  dom.clearDayButton.addEventListener("click", clearDailyLog);
+
+  dom.foodItemsContainer.addEventListener("input", handleFoodListInput);
+  dom.foodItemsContainer.addEventListener("change", handleFoodListChange);
+  dom.foodItemsContainer.addEventListener("click", handleFoodListClick);
+
+  dom.foodNameInput.addEventListener("input", handleFoodNameInput);
+  dom.foodSearchButton.addEventListener("click", handleFoodSearchClick);
+  dom.foodSearchOptions.addEventListener("change", handleFoodOptionChange);
+
+  modals.foodForm.addEventListener("submit", handleFoodFormSubmit);
+  document.getElementById("cancel-food-modal").addEventListener("click", closeFoodModal);
+
+  document.addEventListener("mousedown", handleProfileOutsideClick, true);
+  document.addEventListener("touchstart", handleProfileOutsideClick, { passive: true, capture: true });
+}
+
+/* ============================================================================
+ * Gestión de imágenes de referencia
+ * ========================================================================== */
+/**
+ * Destaca la zona de carga mientras se arrastra una imagen compatible.
+ */
+function handleDragOver(event) {
+  event.preventDefault();
+  dom.dropZone.classList.add("ring-4", "ring-brand-400/40");
+}
+
+/**
+ * Carga la imagen soltada por el usuario en la zona designada.
+ */
+function handleFileDrop(event) {
+  event.preventDefault();
+  dom.dropZone.classList.remove("ring-4", "ring-brand-400/40");
+  const files = event.dataTransfer?.files;
+  if (files && files[0]) processFile(files[0]);
+}
+
+/**
+ * Procesa la imagen seleccionada mediante el input de archivos.
+ */
+function handleFileSelection(event) {
+  const file = event.target.files?.[0];
+  if (file) processFile(file);
+}
+
+/**
+ * Valida la imagen seleccionada y lanza la previsualización.
+ */
+function processFile(file) {
+  if (!file.type.startsWith("image/")) {
+    showOverlayMessage("Formato no compatible. Usa JPG, PNG o HEIC.", "error");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const src = e.target?.result;
+    if (!src) return;
+    state.image = { src, name: file.name, lastModified: file.lastModified };
+    loadImagePreview(src);
+  };
+  reader.readAsDataURL(file);
+}
+
+/**
+ * Inserta la imagen en el visor y oculta las instrucciones iniciales.
+ */
+function loadImagePreview(src) {
+  hideOverlayMessage();
+  if (dom.dropPreviewTitle) {
+    dom.dropPreviewTitle.classList.add("hidden");
+  }
+  dom.dropPreview.removeAttribute("data-visible");
+  dom.dropPreview.classList.add("hidden");
+  dom.dropInstructions.classList.remove("hidden");
+  dom.mealImage.classList.remove("opacity-100");
+  dom.mealImage.classList.add("opacity-0");
+
+  const revealPreview = () => {
+    dom.dropInstructions.classList.add("hidden");
+    dom.dropPreview.classList.remove("hidden");
+    dom.dropPreview.dataset.visible = "true";
+    dom.mealImage.classList.remove("opacity-0");
+    dom.mealImage.classList.add("opacity-100");
+    if (dom.dropPreviewTitle) {
+      dom.dropPreviewTitle.classList.remove("hidden");
+    }
+  };
+
+  dom.mealImage.onload = () => {
+    dom.mealImage.onload = null;
+    dom.mealImage.onerror = null;
+    revealPreview();
+    handleImageReadyForDetection();
+  };
+
+  dom.mealImage.onerror = () => {
+    dom.mealImage.onload = null;
+    dom.mealImage.onerror = null;
+    dom.mealImage.src = "";
+    showOverlayMessage("No se pudo cargar la imagen seleccionada.", "error");
+  };
+  dom.mealImage.src = src;
+}
+
+/**
+ * Restaura la zona de imagen al estado inicial.
+ */
+function resetImage() {
+  state.image = null;
+  if (visionAbortController) {
+    visionAbortController.abort();
+    visionAbortController = null;
+  }
+  state.vision = { status: "idle", error: null, detections: [] };
+  dom.dropPreview.classList.add("hidden");
+  dom.dropPreview.removeAttribute("data-visible");
+  dom.dropInstructions.classList.remove("hidden");
+  if (dom.dropPreviewTitle) {
+    dom.dropPreviewTitle.classList.add("hidden");
+  }
+  dom.mealImage.src = "";
+  dom.mealImage.classList.remove("opacity-100");
+  dom.mealImage.classList.add("opacity-0");
+  clearFoodStatusMessage();
+  hideOverlayMessage();
+}
+
+/* ============================================================================
+ * Detección automática de alimentos (visión)
+ * ========================================================================== */
+function resolveVisionEndpoint() {
+  const fallback = "http://localhost:8787/api/vision-detect";
+  try {
+    const stored = localStorage.getItem("foodcheck:vision-endpoint");
+    if (stored && /^https?:\/\//i.test(stored)) {
+      return stored;
+    }
+  } catch (error) {
+    console.warn("No se pudo leer foodcheck:vision-endpoint:", error);
+  }
+
+  try {
+    if (typeof window !== "undefined") {
+      const { origin, port } = window.location;
+      if (
+        origin &&
+        origin !== "null" &&
+        !origin.startsWith("file:") &&
+        (port === "8787" || port === "" || port === "80" || port === "443")
+      ) {
+        return `${origin.replace(/\/$/, "")}/api/vision-detect`;
+      }
+    }
+  } catch (error) {
+    console.warn("No se pudo resolver el origen actual:", error);
+  }
+
+  return fallback;
+}
+
+function handleImageReadyForDetection() {
+  clearFoodStatusMessage();
+  state.foodItems = [];
+  renderFoodItems();
+  renderNutritionSummary();
+  renderDietitianSuggestions();
+  state.vision = { status: "idle", error: null, detections: [] };
+  requestVisionDetection();
+}
+
+async function requestVisionDetection() {
+  const imageSrc = state.image?.src;
+  if (!imageSrc || typeof imageSrc !== "string" || !imageSrc.startsWith("data:image/")) {
+    return;
+  }
+
+  if (!VISION_CONFIG.endpoint) {
+    setFoodStatusMessage("No hay endpoint configurado para la detección automática.", "warning");
+    return;
+  }
+
+  if (visionAbortController) {
+    visionAbortController.abort();
+  }
+  const controller = new AbortController();
+  visionAbortController = controller;
+
+  state.vision.status = "loading";
+  state.vision.error = null;
+  state.vision.detections = [];
+
+  setFoodStatusMessage("Analizando la imagen para detectar alimentos...", "info");
+  showOverlayMessage("Analizando imagen...", "info");
+
+  try {
+    const response = await fetch(VISION_CONFIG.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageBase64: imageSrc,
+        prompt: VISION_CONFIG.prompt,
+      }),
+      signal: controller.signal,
+    });
+
+    const rawText = await response.text();
+    let payload = null;
+    if (rawText) {
+      try {
+        payload = JSON.parse(rawText);
+      } catch (parseError) {
+        console.warn("Respuesta no JSON del proxy de visión:", parseError);
+      }
+    }
+
+    if (!response.ok) {
+      const details =
+        payload?.error ??
+        payload?.message ??
+        (typeof payload === "string" ? payload : null) ??
+        `Error ${response.status} al solicitar detecciones.`;
+      throw new Error(typeof details === "string" ? details : "Error en la detección automática.");
+    }
+
+    const detections = sanitizeVisionDetections(extractDetectionsFromCompletion(payload));
+    state.vision.detections = detections;
+    state.vision.status = detections.length ? "ready" : "empty";
+
+    if (detections.length) {
+      state.foodItems = detections.map((item, index) => mapVisionDetectionToFoodItem(item, index));
+      renderFoodItems();
+      renderNutritionSummary();
+      renderDietitianSuggestions();
+      const plural = detections.length === 1 ? "alimento" : "alimentos";
+      setFoodStatusMessage(`Detectamos ${detections.length} ${plural}. Ajusta porciones y completa la información nutricional.`, "success");
+      showOverlayMessage("Detección completada. Revisa los alimentos sugeridos.", "info");
+    } else {
+      setFoodStatusMessage("No se detectaron alimentos. Añádelos manualmente.", "warning");
+      showOverlayMessage("No pudimos detectar alimentos automáticamente.", "warning");
+    }
+  } catch (error) {
+    if (controller.signal.aborted) return;
+    state.vision.status = "error";
+    state.vision.error = error?.message ?? String(error);
+    setFoodStatusMessage("No se pudo analizar la imagen automáticamente. Añade los alimentos manualmente.", "warning");
+    showOverlayMessage("Error al contactar con el asistente de visión.", "error");
+    console.warn("Detección de visión fallida:", error);
+  } finally {
+    if (visionAbortController === controller) {
+      visionAbortController = null;
+    }
+  }
+}
+
+function extractDetectionsFromCompletion(payload) {
+  if (!payload) return [];
+  const choices = Array.isArray(payload.choices) ? payload.choices : [];
+  if (!choices.length) {
+    if (Array.isArray(payload.detections)) {
+      return payload.detections;
+    }
+    return [];
+  }
+
+  const message = choices[0]?.message ?? {};
+  let content = message.content;
+
+  if (Array.isArray(content)) {
+    const jsonChunk = content.find(
+      (chunk) =>
+        chunk &&
+        typeof chunk === "object" &&
+        (chunk.type === "json" ||
+          chunk.type === "json_object" ||
+          chunk.type === "output_json") &&
+        chunk.json
+    );
+    if (jsonChunk?.json?.detections) {
+      return jsonChunk.json.detections;
+    }
+
+    const textChunks = content
+      .map((chunk) => {
+        if (typeof chunk === "string") return chunk;
+        if (chunk && typeof chunk === "object") {
+          if (typeof chunk.text === "string") return chunk.text;
+          if (typeof chunk.content === "string") return chunk.content;
+        }
+        return "";
+      })
+      .join(" ");
+    content = textChunks.trim();
+  }
+
+  if (typeof content === "object" && content !== null) {
+    if (Array.isArray(content.detections)) {
+      return content.detections;
+    }
+    return [];
+  }
+
+  if (typeof content !== "string") return [];
+  if (!content.trim()) return [];
+
+  let normalized = content.trim();
+  if (normalized.startsWith("```")) {
+    const closingFence = normalized.lastIndexOf("```");
+    const firstNewline = normalized.indexOf("\n");
+    if (closingFence > firstNewline && firstNewline !== -1) {
+      normalized = normalized.slice(firstNewline + 1, closingFence).trim();
+    } else {
+      normalized = normalized.replace(/```/g, "").trim();
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(normalized);
+    if (parsed && Array.isArray(parsed.detections)) {
+      return parsed.detections;
+    }
+  } catch (error) {
+    console.warn("No se pudo interpretar la respuesta del modelo:", error, normalized);
+  }
+
+  return [];
+}
+
+function sanitizeVisionDetections(rawDetections) {
+  if (!Array.isArray(rawDetections)) return [];
+  const now = Date.now();
+  return rawDetections
+    .map((item, index) => {
+      const name = typeof item?.name === "string" ? item.name.trim() : "";
+      if (!name) return null;
+      const confidence =
+        typeof item.confidence === "number" && Number.isFinite(item.confidence)
+          ? clamp(item.confidence, 0, 1)
+          : null;
+      const portionGrams = Number(item.portion_estimate_grams);
+      const cooking = typeof item.cooking === "string" ? item.cooking.trim() : "";
+      const notes = Array.isArray(item.notes)
+        ? item.notes
+            .map((note) => (typeof note === "string" ? note.trim() : ""))
+            .filter((note) => note.length)
+        : [];
+      const alternatives = Array.isArray(item.alternatives)
+        ? item.alternatives
+            .map((alt) => (typeof alt === "string" ? alt.trim() : ""))
+            .filter((alt) => alt.length)
+        : [];
+      const bbox =
+        item && typeof item.bbox === "object"
+          ? {
+              x: Number(item.bbox.x),
+              y: Number(item.bbox.y),
+              width: Number(item.bbox.width),
+              height: Number(item.bbox.height),
+            }
+          : null;
+
+      return {
+        id:
+          typeof item.id === "string" && item.id.trim().length
+            ? item.id.trim()
+            : `vision-${now}-${index}`,
+        name,
+        confidence,
+        cooking,
+        portionGrams:
+          Number.isFinite(portionGrams) && portionGrams > 0 ? Math.round(portionGrams) : null,
+        notes,
+        alternatives,
+        bbox,
+      };
+    })
+    .filter(Boolean);
+}
+
+function mapVisionDetectionToFoodItem(detection, index) {
+  const nutrition = createEmptyNutrition();
+  nutrition.source = "Detección automática";
+  const portionAmount = detection.portionGrams ?? 120;
+  const amount = Math.max(10, portionAmount);
+  const details = [];
+  if (detection.cooking) {
+    details.push(`cocción: ${detection.cooking}`);
+  }
+  if (typeof detection.confidence === "number") {
+    details.push(`confianza ${(detection.confidence * 100).toFixed(0)}%`);
+  }
+
+  const entry = createFoodEntry({
+    name: detection.name,
+    amount,
+    unit: "g",
+    nutrition,
+    brand: details.join(" · "),
+    source: "Detección automática",
+  });
+
+  entry.source = "Detección automática";
+  entry.metadata = {
+    visionIndex: index,
+    detectionId: detection.id,
+    confidence: detection.confidence,
+    cooking: detection.cooking,
+    notes: detection.notes,
+    alternatives: detection.alternatives,
+    bbox: detection.bbox,
+  };
+
+  return entry;
+}
+
+/* ============================================================================
+ * Gestión de condiciones de salud
+ * ========================================================================== */
+/**
+ * Abre el panel de condiciones cuando el usuario pulsa el resumen.
+ */
+function handleProfileSummaryShortcut(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const wasClosed = !dom.profileCard.open;
+  dom.profileCard.open = true;
+  if (wasClosed) {
+    requestAnimationFrame(() => {
+      const firstCheckbox = conditionCheckboxes[0];
+      if (firstCheckbox) firstCheckbox.focus();
+    });
+  }
+}
+
+/**
+ * Cierra el panel de condiciones cuando se hace clic fuera del mismo.
+ */
+function handleProfileOutsideClick(event) {
+  if (!dom.profileCard || !dom.profileCard.open) return;
+  if (dom.profileCard.contains(event.target)) return;
+  dom.profileCard.open = false;
+}
+
+/**
+ * Guarda la condición seleccionada y actualiza las sugerencias.
+ */
+function handleConditionToggle(event) {
+  const condition = event.target.dataset.condition;
+  state.userConditions[condition] = event.target.checked;
+  renderProfileSection();
+  renderDietitianSuggestions();
+  persistState();
+}
+
+/* ============================================================================
+ * Búsqueda de alimentos por nombre
+ * ========================================================================== */
+/**
+ * Gestiona la entrada de texto en el modal y lanza la búsqueda diferida.
+ */
+function handleFoodNameInput(event) {
+  const query = event.target.value.trim();
+  state.foodSearch.lastQuery = query;
+  state.foodSearch.selectedId = null;
+
+  if (!query) {
+    resetFoodSearch("");
+    return;
+  }
+
+  if (query.length < 3) {
+    if (foodSearchDebounce) clearTimeout(foodSearchDebounce);
+    state.foodSearch.results = [];
+    renderFoodSearchResults();
+    setFoodSearchFeedback("Escribe al menos 3 caracteres para buscar.");
+    return;
+  }
+
+  scheduleFoodSearch(query);
+}
+
+/**
+ * Lanza la búsqueda inmediatamente al pulsar el botón del modal.
+ */
+function handleFoodSearchClick() {
+  const query = dom.foodNameInput.value.trim();
+  if (!query) {
+    setFoodSearchFeedback("Introduce un nombre antes de buscar.");
+    return;
+  }
+  performFoodSearch(query, { force: true });
+}
+
+/**
+ * Registra la selección realizada por el usuario en la lista de resultados.
+ */
+function handleFoodOptionChange(event) {
+  const target = event.target;
+  if (target?.name !== "food-search-choice") return;
+  state.foodSearch.selectedId = target.value;
+  renderFoodSearchResults();
+  const selected = getSelectedFoodSearchResult();
+  if (selected) {
+    const brandPart = selected.brand ? ` · ${selected.brand}` : "";
+    const originPart = selected.origin ? ` (${selected.origin})` : "";
+    setFoodSearchFeedback(`Seleccionado: ${selected.name}${brandPart}${originPart}`);
+  }
+}
+
+/**
+ * Programa la búsqueda asincrónica tras un pequeño retardo.
+ */
+function scheduleFoodSearch(query) {
+  if (foodSearchDebounce) clearTimeout(foodSearchDebounce);
+  foodSearchDebounce = setTimeout(() => performFoodSearch(query), 350);
+}
+
+/**
+ * Consulta OpenFoodFacts filtrando por coincidencias en el nombre.
+ */
+async function performFoodSearch(query, { force = false, autoSelectFirst = false } = {}) {
+  const normalized = query.trim();
+  state.foodSearch.lastQuery = normalized;
+
+  if (!normalized) {
+    resetFoodSearch("");
+    return [];
+  }
+
+  if (!force && normalized.length < 3) {
+    return [];
+  }
+
+  if (foodSearchDebounce) {
+    clearTimeout(foodSearchDebounce);
+    foodSearchDebounce = null;
+  }
+  if (foodSearchAbortController) {
+    foodSearchAbortController.abort();
+  }
+
+  const controller = new AbortController();
+  foodSearchAbortController = controller;
+  state.foodSearch.status = "loading";
+  setFoodSearchFeedback("Buscando coincidencias...");
+
+  try {
+    const words = normalizedQueryWords(normalized);
+
+    const offResponse = await queryOpenFoodFacts(normalized, FOOD_SEARCH_LIMITS.openFoodFacts, {
+      signal: controller.signal,
+    });
+    const offProducts = Array.isArray(offResponse) ? offResponse : [];
+    const mappedOff = offProducts.map((product, index) =>
+      mapOffProductToSearchOption(product, index)
+    );
+    const filteredOff = mappedOff.filter((option) => matchesNameOrBrand(words, option));
+    const selectedCandidates = (filteredOff.length ? filteredOff : mappedOff).slice(
+      0,
+      FOOD_SEARCH_LIMITS.openFoodFacts
+    );
+
+    selectedCandidates.sort((a, b) => scoreFoodOption(b) - scoreFoodOption(a));
+
+    state.foodSearch.results = selectedCandidates;
+    if (autoSelectFirst && selectedCandidates.length) {
+      state.foodSearch.selectedId = selectedCandidates[0].id;
+    } else if (!selectedCandidates.find((item) => item.id === state.foodSearch.selectedId)) {
+      state.foodSearch.selectedId = null;
+    }
+
+    state.foodSearch.status = state.foodSearch.results.length ? "ready" : "empty";
+    renderFoodSearchResults();
+
+    if (state.foodSearch.results.length) {
+      setFoodSearchFeedback(`Mostrando ${state.foodSearch.results.length} coincidencias de OpenFoodFacts.`);
+    } else {
+      setFoodSearchFeedback("No encontramos coincidencias por nombre. Ajusta la descripción y vuelve a intentarlo.");
+    }
+
+    return state.foodSearch.results;
+  } catch (error) {
+    if (error.name === "AbortError") return [];
+    state.foodSearch.results = [];
+    state.foodSearch.status = "error";
+    console.warn("Error al buscar alimentos:", error);
+    setFoodSearchFeedback("No se pudo completar la búsqueda. Intenta de nuevo.");
+    renderFoodSearchResults();
+    return [];
+  } finally {
+    foodSearchAbortController = null;
+  }
+}
+
+/**
+ * Imprime la lista de coincidencias dentro del modal.
+ */
+function renderFoodSearchResults() {
+  if (!dom.foodSearchResults || !dom.foodSearchOptions) return;
+  const { results, selectedId, status } = state.foodSearch;
+
+  if (!results.length) {
+    dom.foodSearchResults.classList.add("hidden");
+    dom.foodSearchOptions.innerHTML = "";
+    if (status === "idle") {
+      setFoodSearchFeedback(defaultFoodSearchFeedback());
+    }
+    return;
+  }
+
+  dom.foodSearchResults.classList.remove("hidden");
+  dom.foodSearchOptions.innerHTML = results
+    .map((option) => {
+      const isActive = option.id === selectedId;
+      const macros = [
+        option.nutrition?.calories ? `${Math.round(option.nutrition.calories)} kcal /100g` : null,
+        option.nutrition?.protein ? `${formatSmallNumber(option.nutrition.protein)} g proteína` : null,
+        option.nutrition?.carbs ? `${formatSmallNumber(option.nutrition.carbs)} g carbohidratos` : null,
+        option.nutrition?.fat ? `${formatSmallNumber(option.nutrition.fat)} g grasas` : null,
+      ].filter(Boolean);
+
+      const brandLine = option.brand ? `<p class="food-option-brand">${option.brand}</p>` : "";
+      const originLine = option.origin ? `<p class="food-option-origin">${option.origin}</p>` : "";
+
+      return `
+        <label class="food-option ${isActive ? "active" : ""}">
+          <div class="food-option-header">
+            <div>
+              <p class="food-option-title">${option.name}</p>
+              ${brandLine}
+              ${originLine}
+            </div>
+            <input type="radio" name="food-search-choice" value="${option.id}" ${isActive ? "checked" : ""} />
+          </div>
+          <div class="food-option-macros">
+            ${macros.map((item) => `<span>${item}</span>`).join("")}
+          </div>
+        </label>
+      `;
+    })
+    .join("");
+}
+
+function defaultFoodSearchFeedback() {
+  return "Busca por nombre o marca en OpenFoodFacts.";
+}
+
+function setFoodSearchFeedback(message) {
+  if (!dom.foodSearchFeedback) return;
+  const finalMessage = message && message.trim().length ? message : defaultFoodSearchFeedback();
+  dom.foodSearchFeedback.textContent = finalMessage;
+}
+
+function getSelectedFoodSearchResult() {
+  if (!state.foodSearch.selectedId) return null;
+  return state.foodSearch.results.find((item) => item.id === state.foodSearch.selectedId) ?? null;
+}
+
+function resetFoodSearch(initialQuery = "") {
+  if (foodSearchDebounce) {
+    clearTimeout(foodSearchDebounce);
+    foodSearchDebounce = null;
+  }
+  if (foodSearchAbortController) {
+    foodSearchAbortController.abort();
+    foodSearchAbortController = null;
+  }
+  state.foodSearch = {
+    results: [],
+    selectedId: null,
+    status: "idle",
+    lastQuery: initialQuery,
+  };
+  if (dom.foodSearchResults) dom.foodSearchResults.classList.add("hidden");
+  if (dom.foodSearchOptions) dom.foodSearchOptions.innerHTML = "";
+  setFoodSearchFeedback(defaultFoodSearchFeedback());
+}
+
+/* ============================================================================
+ * Gestión de alimentos de la comida
+ * ========================================================================== */
+function openFoodModal(foodId = null) {
+  activeFoodId = foodId;
+  let initialQuery = "";
+
+  if (foodId) {
+    const food = state.foodItems.find((item) => item.id === foodId);
+    if (!food) return;
+    modals.foodForm.name.value = food.name;
+    modals.foodForm.amount.value = food.portion.amount;
+    modals.foodForm.unit.value = food.portion.unit;
+    initialQuery = food.name ?? "";
+  } else {
+    modals.foodForm.reset();
+    modals.foodForm.unit.value = "g";
+  }
+
+  resetFoodSearch(initialQuery);
+  dom.foodNameInput.value = initialQuery;
+  if (initialQuery && initialQuery.trim().length >= 3) {
+    scheduleFoodSearch(initialQuery.trim());
+  }
+  modals.food.showModal();
+}
+
+function closeFoodModal() {
+  modals.food.close();
+  activeFoodId = null;
+  resetFoodSearch("");
+}
+
+function createFoodEntry({ name, amount, unit, nutrition, brand = "", source = "" }) {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    portion: { amount, unit },
+    nutrition,
+    brand,
+    source,
+  };
+}
+
+async function handleFoodFormSubmit(event) {
+  event.preventDefault();
+
+  const formData = new FormData(event.target);
+  const payload = {
+    name: formData.get("name")?.toString().trim(),
+    amount: Number(formData.get("amount")),
+    unit: formData.get("unit") ?? "g",
+  };
+
+  if (!payload.name || payload.amount <= 0) {
+    setFoodSearchFeedback("Introduce un nombre válido y una cantidad mayor que cero.");
+    return;
+  }
+
+  let selectedOption = getSelectedFoodSearchResult();
+  let nutrition = null;
+  let finalName = payload.name;
+  let brand = "";
+
+  if (!selectedOption) {
+    const fetched = await performFoodSearch(payload.name, { force: true, autoSelectFirst: false });
+    if (fetched.length === 1) {
+      selectedOption = fetched[0];
+      state.foodSearch.selectedId = selectedOption.id;
+    } else if (fetched.length > 1) {
+      renderFoodSearchResults();
+      setFoodSearchFeedback("Selecciona una de las coincidencias antes de guardar.");
+      return;
+    }
+  }
+
+  if (selectedOption) {
+    nutrition = structuredClone(selectedOption.nutrition);
+    finalName = selectedOption.name;
+    brand = selectedOption.brand ?? "";
+  } else {
+    nutrition = createEmptyNutrition();
+    nutrition.source = "Datos manuales";
+  }
+
+  if (activeFoodId) {
+    const food = state.foodItems.find((item) => item.id === activeFoodId);
+    if (!food) return;
+    food.name = finalName;
+    food.portion.amount = payload.amount;
+    food.portion.unit = payload.unit;
+    food.nutrition = structuredClone(nutrition);
+    food.brand = brand;
+    food.source = nutrition.source ?? brand ?? "";
+  } else {
+    const foodEntry = createFoodEntry({
+      name: finalName,
+      amount: payload.amount,
+      unit: payload.unit,
+      nutrition: structuredClone(nutrition),
+      brand,
+      source: nutrition.source ?? brand ?? "",
+    });
+    state.foodItems.push(foodEntry);
+  }
+
+  closeFoodModal();
+  renderAll();
+  clearFoodStatusMessage();
+}
+
+function handleFoodListInput(event) {
+  const target = event.target;
+  if (!target?.dataset?.action || !target.dataset.id) return;
+  if (target.dataset.action === "update-amount") {
+    updateFoodAmount(target.dataset.id, target.value);
+  }
+}
+
+function handleFoodListChange(event) {
+  const target = event.target;
+  if (!target?.dataset?.action || !target.dataset.id) return;
+  if (target.dataset.action === "update-unit") {
+    updateFoodUnit(target.dataset.id, target.value);
+  } else if (target.dataset.action === "update-amount") {
+    updateFoodAmount(target.dataset.id, target.value);
+  }
+}
+
+function handleFoodListClick(event) {
+  const actionButton = event.target.closest("[data-action]");
+  if (!actionButton?.dataset?.action || !actionButton.dataset.id) return;
+
+  const { action, id } = actionButton.dataset;
+  if (action === "open-editor") {
+    openFoodModal(id);
+  } else if (action === "remove-food") {
+    removeFood(id);
+  }
+}
+
+function updateFoodAmount(foodId, amount) {
+  const food = state.foodItems.find((item) => item.id === foodId);
+  if (!food) return;
+  const normalized = Math.max(0, Number(amount) || 0);
+  if (Number.isNaN(normalized) || normalized === food.portion.amount) return;
+  food.portion.amount = normalized;
+  renderNutritionSummary();
+  renderDietitianSuggestions();
+}
+
+function updateFoodUnit(foodId, unit) {
+  const food = state.foodItems.find((item) => item.id === foodId);
+  if (!food) return;
+  const normalizedUnit = typeof unit === "string" && UNIT_CONVERSIONS[unit.toLowerCase()]
+    ? unit.toLowerCase()
+    : "g";
+  if (food.portion.unit === normalizedUnit) return;
+  food.portion.unit = normalizedUnit;
+  renderNutritionSummary();
+  renderDietitianSuggestions();
+}
+
+function removeFood(foodId) {
+  const index = state.foodItems.findIndex((item) => item.id === foodId);
+  if (index === -1) return;
+  state.foodItems.splice(index, 1);
+  renderAll();
+  setFoodStatusMessage("Alimento eliminado.", "warning");
+}
+
+function saveCurrentMealToHistory() {
+  if (!state.foodItems.length) {
+    setFoodStatusMessage("Añade al menos un alimento antes de guardar.", "warning");
+    return;
+  }
+
+  const totals = calculateTotalsFromItems(state.foodItems);
+  const entry = {
+    timestamp: Date.now(),
+    items: state.foodItems.map((item) => structuredClone(item)),
+    totals,
+  };
+
+  const dayEntry = state.dailyLog[state.currentDate] ?? { items: [], totals: null };
+  dayEntry.items.push(entry);
+  dayEntry.totals = dayEntry.items.reduce(
+    (acc, item) => {
+      acc.calories += item.totals.calories;
+      acc.protein += item.totals.protein;
+      acc.carbs += item.totals.carbs;
+      acc.fat += item.totals.fat;
+      acc.fiber += item.totals.fiber;
+      acc.sugar += item.totals.sugar;
+      acc.sodium += item.totals.sodium;
+      return acc;
+    },
+    {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      fiber: 0,
+      sugar: 0,
+      sodium: 0,
+    }
+  );
+
+  state.dailyLog[state.currentDate] = dayEntry;
+  state.foodItems = [];
+  persistState();
+  renderFoodItems();
+  renderNutritionSummary();
+  renderDietitianSuggestions();
+  renderDailyProgress();
+  setFoodStatusMessage("Comida guardada.", "success");
+}
+
+function clearDailyLog() {
+  if (!state.dailyLog[state.currentDate]) {
+    setFoodStatusMessage("No hay registros para borrar.", "warning");
+    return;
+  }
+  const confirmed = confirm("¿Seguro que deseas borrar el registro de hoy?");
+  if (!confirmed) return;
+  delete state.dailyLog[state.currentDate];
+  persistState();
+  renderDailyProgress();
+  setFoodStatusMessage("Registro diario reiniciado.", "success");
+}
+
+/* ============================================================================
+ * Renderizado de la interfaz
+ * ========================================================================== */
+/**
+ * Orquesta el renderizado de todas las secciones dependientes del estado.
+ */
+function renderAll() {
+  renderProfileSection();
+  renderFoodItems();
+  renderNutritionSummary();
+  renderDietitianSuggestions();
+  renderDailyProgress();
+  persistState();
+}
+
+/**
+ * Actualiza el resumen visual de condiciones médicas activas.
+ */
+function renderProfileSection() {
+  if (!dom.profileSummaryTags || !dom.profileSummaryText) return;
+  const selected = Object.entries(state.userConditions)
+    .filter(([, active]) => active)
+    .map(([key]) => CONDITION_LABELS[key] ?? key);
+
+  if (selected.length) {
+    dom.profileSummaryText.textContent = "Condiciones médicas aplicadas a tus mensajes.";
+    dom.profileSummaryTags.textContent = `${selected.join(", ")} · editar`;
+    dom.profileSummaryTags.dataset.hasSelection = "true";
+    dom.profileSummaryTags.style.opacity = "1";
+  } else {
+    dom.profileSummaryText.textContent = "Selecciona tus condiciones para personalizar las sugerencias.";
+    dom.profileSummaryTags.textContent = "Configura tus condiciones";
+    dom.profileSummaryTags.dataset.hasSelection = "false";
+    dom.profileSummaryTags.style.opacity = "0.65";
+  }
+}
+
+function renderFoodItems() {
+  if (!dom.foodItemsContainer) return;
+
+  if (!state.foodItems.length) {
+    dom.foodItemsContainer.innerHTML = `
+      <div class="grid h-full place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600 text-center leading-relaxed">
+        Todavía no hay alimentos en la lista.<br />Usa el botón "Añadir alimento" para empezar.
+      </div>
+    `;
+    return;
+  }
+
+  dom.foodItemsContainer.innerHTML = state.foodItems
+    .map((food) => {
+      const brandLine = food.brand ? `<p class="text-[11px] text-slate-500">${food.brand}</p>` : "";
+      const sourceLine = food.source ? `<p class="text-[11px] text-slate-500">Fuente: ${food.source}</p>` : "";
+      return `
+        <article class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-food="${food.id}">
+          <header class="flex flex-wrap items-start justify-between gap-2 text-xs text-slate-600">
+            <div>
+              <h3 class="font-display text-base font-semibold text-brand-800">${food.name}</h3>
+              ${brandLine}
+              ${sourceLine}
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="rounded-full border border-brand-400/70 px-3 py-1 text-brand-700 hover:bg-brand-500/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-300" data-action="open-editor" data-id="${food.id}">Editar</button>
+              <button type="button" class="rounded-full border border-accent-red/40 px-3 py-1 text-accent-red hover:bg-accent-red/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-red/30" data-action="remove-food" data-id="${food.id}">Eliminar</button>
+            </div>
+          </header>
+          <div class="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+            <label class="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">
+              <span aria-hidden="true">&#x2696;</span>
+              <input type="number" min="0" step="5" value="${food.portion.amount}" data-action="update-amount" data-id="${food.id}" class="w-16 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-300" />
+              <select data-action="update-unit" data-id="${food.id}" class="rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-300">
+                ${Object.keys(UNIT_CONVERSIONS)
+                  .map((unit) => `<option value="${unit}" ${food.portion.unit === unit ? "selected" : ""}>${unit}</option>`)
+                  .join("")}
+              </select>
+            </label>
+          </div>
+          <div class="mt-2 grid gap-1 text-[11px] text-slate-600 md:grid-cols-2">
+            <p>Calorías: <span class="font-semibold text-slate-800">${formatMacroValue(food, "calories")} kcal</span></p>
+            <p>Proteína: <span class="font-semibold text-slate-800">${formatMacroValue(food, "protein")} g</span></p>
+            <p>Carbohidratos: <span class="font-semibold text-slate-800">${formatMacroValue(food, "carbs")} g</span></p>
+            <p>Grasas: <span class="font-semibold text-slate-800">${formatMacroValue(food, "fat")} g</span></p>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderNutritionSummary() {
+  if (!dom.nutritionSummary) return;
+
+  const totals = calculateTotalsFromItems(state.foodItems);
+  if (!state.foodItems.length) {
+    dom.nutritionSummary.dataset.disabled = "true";
+    dom.macroRing.setAttribute("data-kcal", "0 kcal");
+  } else {
+    delete dom.nutritionSummary.dataset.disabled;
+    dom.macroRing.setAttribute("data-kcal", `${Math.round(totals.calories)} kcal`);
+  }
+
+  const macroRingAngles = computeMacroAngles(totals.protein, totals.carbs, totals.fat);
+  dom.macroRing.style.setProperty("--protein-angle", `${macroRingAngles.protein}deg`);
+  dom.macroRing.style.setProperty("--carbs-angle", `${macroRingAngles.carbs}deg`);
+  dom.macroRing.style.setProperty("--fat-angle", `${macroRingAngles.fat}deg`);
+
+  const formatGrams = (value) => (value > 0 ? `${value.toFixed(1)} g` : "0 g");
+  const formatMilligrams = (value) => (value > 0 ? `${Math.round(value)} mg` : "0 mg");
+
+  const rows = [
+    { label: "Proteína", value: formatGrams(totals.protein) },
+    { label: "Carbohidratos", value: formatGrams(totals.carbs) },
+    { label: "Azúcares simples", value: formatGrams(totals.sugar), sub: true },
+    { label: "Fibra", value: formatGrams(totals.fiber), sub: true },
+    { label: "Grasas", value: formatGrams(totals.fat) },
+    { label: "Grasas saturadas", value: formatGrams(totals.saturatedFat), sub: true },
+    { label: "Sodio", value: formatMilligrams(totals.sodium) },
+  ];
+
+  dom.nutrientTotals.innerHTML = rows
+    .map((row) => {
+      const valueClasses = `font-semibold ${row.sub ? "text-slate-600" : "text-slate-800"}`;
+      return `
+        <div class="nutrient-row${row.sub ? " nutrient-subrow" : ""}">
+          <span>${row.label}</span>
+          <span class="${valueClasses}">${row.value}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderDietitianSuggestions() {
+  if (!dom.dietitianSection) return;
+
+  if (!state.foodItems.length) {
+    dom.dietitianSection.dataset.disabled = "true";
+    dom.dietitianSuggestions.innerHTML = `
+      <li class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+        Comienza añadiendo alimentos para obtener recomendaciones personalizadas.
+      </li>
+    `;
+    return;
+  }
+
+  delete dom.dietitianSection.dataset.disabled;
+  const totals = calculateTotalsFromItems(state.foodItems);
+  const suggestions = [];
+
+  if (totals.fiber < 12) suggestions.push("Añade verduras, legumbres o fruta para aumentar la fibra.");
+  if (totals.sodium > 800) suggestions.push("Controla el sodio: limita sal añadida y productos procesados.");
+  if (totals.protein < 20) suggestions.push("Considera incluir una fuente extra de proteína magra.");
+  if (totals.sugar > 15) suggestions.push("Las azúcares simples están elevadas. Prioriza fruta fresca sin azúcares añadidos.");
+  if (totals.fat > 20) suggestions.push("Equilibra la grasa total optando por grasas de buena calidad.");
+
+  Object.entries(state.userConditions)
+    .filter(([, active]) => active)
+    .forEach(([condition]) => {
+      if (condition === "diabetes") {
+        suggestions.push("Si tienes diabetes, acompaña los carbohidratos con proteína y fibra para modular la respuesta glucémica.");
+      }
+      if (condition === "renal") {
+        suggestions.push("Control renal: revisa alimentos ricos en potasio y fósforo oculto.");
+      }
+      if (condition === "hipertension") {
+        suggestions.push("Hipertensión: prioriza alimentos frescos y reduce el sodio añadido.");
+      }
+      if (condition === "hipercolesterolemia") {
+        suggestions.push("Hipercolesterolemia: potencia grasas monoinsaturadas como aceite de oliva virgen o aguacate.");
+      }
+    });
+
+  if (!suggestions.length) {
+    suggestions.push("Buen equilibrio general. Mantén la variedad de alimentos y una correcta hidratación.");
+  }
+
+  dom.dietitianSuggestions.innerHTML = suggestions
+    .map((message) => `<li class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">${message}</li>`)
+    .join("");
+}
+
+function renderDailyProgress() {
+  if (!dom.dailyProgressContainer) return;
+
+  const todayLog = state.dailyLog[state.currentDate] ?? { items: [], totals: null };
+  const totals = todayLog.totals ?? null;
+
+  if (!totals) {
+    dom.dailyProgressContainer.innerHTML = `
+      <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 text-center">
+        Guarda tu primera comida del día para generar este resumen.
+      </div>
+    `;
+    updateDailyMacroRing(null);
+    if (dom.dailySummaryText) {
+      dom.dailySummaryText.textContent = "Registra tus comidas diarias para activar este resumen.";
+    }
+    return;
+  }
+
+  dom.dailyProgressContainer.innerHTML = [
+    renderProgressRow("Calorías", totals.calories, DAILY_REFERENCE_TARGETS.calories, "kcal"),
+    renderProgressRow("Proteína", totals.protein, DAILY_REFERENCE_TARGETS.protein, "g"),
+    renderProgressRow("Carbohidratos", totals.carbs, DAILY_REFERENCE_TARGETS.carbs, "g"),
+    renderProgressRow("Grasas", totals.fat, DAILY_REFERENCE_TARGETS.fat, "g"),
+    renderProgressRow("Fibra", totals.fiber, DAILY_REFERENCE_TARGETS.fiber, "g"),
+    renderProgressRow("Sodio", totals.sodium, DAILY_REFERENCE_TARGETS.sodium, "mg"),
+  ].join("");
+
+  updateDailyMacroRing(totals);
+  if (dom.dailySummaryText) {
+    dom.dailySummaryText.textContent = generateDailyAdvice(totals);
+  }
+}
+
+function renderProgressRow(label, value, goal, unit) {
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+  const safeGoal = Number.isFinite(goal) && goal > 0 ? goal : 0;
+  const ratio = safeGoal > 0 ? Math.min(safeValue / safeGoal, 1.2) : 0;
+  const percentWidth = Math.max(0, Math.min(100, ratio * 100));
+  const percentText = safeGoal > 0 ? Math.round((safeValue / safeGoal) * 100) : 0;
+  const statusColor =
+    ratio >= 1.1 ? "bg-accent-red" : ratio >= 0.9 ? "bg-accent-amber" : "bg-accent-green";
+
+  return `
+    <div class="rounded-2xl border border-slate-200 bg-white p-3">
+      <div class="flex items-center justify-between text-[11px] text-slate-600">
+        <span>${label}</span>
+        <span class="flex items-center gap-2 font-semibold text-slate-800">
+          ${formatDailyValue(safeValue, unit)}
+          ${safeGoal > 0 ? `<span class="text-[10px] font-normal text-slate-500">${percentText}%</span>` : ""}
+        </span>
+      </div>
+      <div class="mt-2 h-2 rounded-full bg-slate-100" role="progressbar" aria-valuenow="${percentText}" aria-valuemin="0" aria-valuemax="120">
+        <div class="h-full rounded-full ${statusColor}" style="width: ${percentWidth}%"></div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Dibuja el anillo diario mostrando la cuota calórica de cada macronutriente.
+ */
+function updateDailyMacroRing(totals) {
+  if (!dom.dailyMacroRing) return;
+
+  if (!totals) {
+    dom.dailyMacroRing.style.setProperty("--protein-angle", "0deg");
+    dom.dailyMacroRing.style.setProperty("--carbs-angle", "0deg");
+    dom.dailyMacroRing.style.setProperty("--fat-angle", "0deg");
+    dom.dailyMacroRing.setAttribute("data-kcal", "0 kcal");
+    return;
+  }
+
+  const proteinGoal = DAILY_REFERENCE_TARGETS.protein > 0 ? totals.protein / DAILY_REFERENCE_TARGETS.protein : totals.protein;
+  const carbsGoal = DAILY_REFERENCE_TARGETS.carbs > 0 ? totals.carbs / DAILY_REFERENCE_TARGETS.carbs : totals.carbs;
+  const fatGoal = DAILY_REFERENCE_TARGETS.fat > 0 ? totals.fat / DAILY_REFERENCE_TARGETS.fat : totals.fat;
+  const angles = computeMacroAngles(
+    clamp(proteinGoal, 0, 1.2),
+    clamp(carbsGoal, 0, 1.2),
+    clamp(fatGoal, 0, 1.2),
+    { weights: [1, 1, 1] }
+  );
+
+  dom.dailyMacroRing.style.setProperty("--protein-angle", `${angles.protein}deg`);
+  dom.dailyMacroRing.style.setProperty("--carbs-angle", `${angles.carbs}deg`);
+  dom.dailyMacroRing.style.setProperty("--fat-angle", `${angles.fat}deg`);
+
+  const proteinKcal = Math.max(0, totals.protein ?? 0) * 4;
+  const carbKcal = Math.max(0, totals.carbs ?? 0) * 4;
+  const fatKcal = Math.max(0, totals.fat ?? 0) * 9;
+  const totalEnergy =
+    Number.isFinite(totals.calories) && totals.calories > 0
+      ? totals.calories
+      : proteinKcal + carbKcal + fatKcal;
+  const label = totalEnergy > 0 ? `${Math.round(totalEnergy)} kcal` : "0 kcal";
+  dom.dailyMacroRing.setAttribute("data-kcal", label);
+}
+
+function setFoodStatusMessage(message, variant = "info") {
+  if (!dom.foodStatusMessage) return;
+  dom.foodStatusMessage.textContent = message;
+  dom.foodStatusMessage.classList.remove("hidden", "text-brand-700", "text-amber-600", "text-accent-red");
+  if (variant === "success") {
+    dom.foodStatusMessage.classList.add("text-brand-700");
+  } else if (variant === "warning") {
+    dom.foodStatusMessage.classList.add("text-amber-600");
+  } else if (variant === "error") {
+    dom.foodStatusMessage.classList.add("text-accent-red");
+  } else {
+    dom.foodStatusMessage.classList.add("text-brand-700");
+  }
+}
+
+function clearFoodStatusMessage() {
+  if (!dom.foodStatusMessage) return;
+  dom.foodStatusMessage.textContent = "";
+  dom.foodStatusMessage.classList.add("hidden");
+}
+
+function generateDailyAdvice(totals) {
+  const suggestions = [];
+  const energy = Math.max(0, totals.calories ?? 0);
+  const proteinEnergy = Math.max(0, totals.protein ?? 0) * 4;
+  const carbEnergy = Math.max(0, totals.carbs ?? 0) * 4;
+  const fatEnergy = Math.max(0, totals.fat ?? 0) * 9;
+  const macroEnergyTotal = proteinEnergy + carbEnergy + fatEnergy;
+
+  const pct = (num, den) => (den > 0 ? (num / den) * 100 : 0);
+  const proteinPct = pct(proteinEnergy, macroEnergyTotal);
+  const carbsPct = pct(carbEnergy, macroEnergyTotal);
+  const fatPct = pct(fatEnergy, macroEnergyTotal);
+  const saturatedPct = pct((totals.saturatedFat ?? 0) * 9, energy);
+  const sugarsPct = pct((totals.sugar ?? 0) * 4, energy);
+
+  if (energy >= DAILY_REFERENCE_TARGETS.calories * 1.1) {
+    suggestions.push("Ya superaste las calorías de referencia. Ajusta las siguientes ingestas si buscas mantener el balance.");
+  } else if (energy <= DAILY_REFERENCE_TARGETS.calories * 0.6) {
+    suggestions.push("El aporte calórico es bajo respecto a la referencia. Considera añadir una comida equilibrada.");
+  }
+
+  const macroRanges = {
+    protein: { min: 15, max: 30, value: proteinPct },
+    carbs: { min: 45, max: 60, value: carbsPct },
+    fat: { min: 20, max: 35, value: fatPct },
+  };
+
+  Object.entries(macroRanges).forEach(([key, range]) => {
+    if (macroEnergyTotal <= 0) return;
+    if (range.value < range.min) {
+      suggestions.push(`La ${key === "carbs" ? "carbohidratos" : key === "protein" ? "proteína" : "grasa"} aporta ${range.value.toFixed(1)}% de la energía (recomendado ${range.min}-${range.max}%). Ajusta para equilibrar.`);
+    } else if (range.value > range.max) {
+      suggestions.push(`Hay un peso elevado de ${key === "carbs" ? "carbohidratos" : key === "protein" ? "proteína" : "grasa"} (${range.value.toFixed(1)}%). Procura acercarte al rango ${range.min}-${range.max}%.`);
+    }
+  });
+
+  if (saturatedPct > 10) {
+    suggestions.push("La grasa saturada supera el 10% de la energía diaria. Prioriza fuentes monoinsaturadas.");
+  }
+  if (sugarsPct > 10) {
+    suggestions.push("Azúcares simples por encima del 10% del total. Reduce alimentos con azúcar añadido.");
+  }
+  if (totals.fiber < DAILY_REFERENCE_TARGETS.fiber * 0.7) {
+    suggestions.push("Fibra por debajo de la referencia. Añade legumbres, hortalizas y fruta entera.");
+  }
+  if (totals.sodium > DAILY_REFERENCE_TARGETS.sodium) {
+    suggestions.push("Sodio elevado respecto a la referencia. Revisa condimentos y embutidos.");
+  }
+
+  if (!suggestions.length) {
+    return "Buen equilibrio diario. Mantén la variedad de alimentos y una correcta hidratación.";
+  }
+
+  return suggestions.slice(0, 3).join(" ");
+}
+
+/* ============================================================================
+ * Cálculos y utilidades
+ * ========================================================================== */
+/**
+ * Suma los macronutrientes de la lista recibida usando los valores por 100 g.
+ */
+function calculateTotalsFromItems(items) {
+  return items.reduce(
+    (acc, food) => {
+      const grams = convertToGrams(food.portion.amount, food.portion.unit);
+      const macros = food.nutrition ?? createEmptyNutrition();
+      acc.calories += (macros.calories / 100) * grams;
+      acc.protein += (macros.protein / 100) * grams;
+      acc.carbs += (macros.carbs / 100) * grams;
+      acc.fat += (macros.fat / 100) * grams;
+      acc.fiber += (macros.fiber / 100) * grams;
+      acc.sugar += (macros.sugar / 100) * grams;
+      acc.sodium += (macros.sodium / 100) * grams;
+      acc.saturatedFat += (macros.saturatedFat / 100) * grams;
+      return acc;
+    },
+    {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      fiber: 0,
+      sugar: 0,
+      sodium: 0,
+      saturatedFat: 0,
+    }
+  );
+}
+
+/**
+ * Formatea una cantidad para mostrarla dentro de las tarjetas de progreso.
+ */
+function formatDailyValue(value, unit) {
+  if (!Number.isFinite(value) || value <= 0) return `0 ${unit}`;
+  if (unit === "mg") {
+    return `${Math.round(value)} ${unit}`;
+  }
+  const formatter = value < 10 ? NUMBER_FORMATTERS.macroSmall : NUMBER_FORMATTERS.macro;
+  return `${formatter.format(value)} ${unit}`;
+}
+
+/**
+ * Convierte una porción introducida por el usuario a gramos.
+ */
+function convertToGrams(amount, unit) {
+  const normalizedAmount = Number(amount);
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) return 0;
+  const normalizedUnit = typeof unit === "string" ? unit.toLowerCase() : "g";
+  const factor = UNIT_CONVERSIONS[normalizedUnit] ?? 1;
+  return normalizedAmount * factor;
+}
+
+/**
+ * Calcula el valor nutricional de un alimento según su porción actual.
+ */
+function formatMacroValue(food, key) {
+  if (!food?.nutrition) return "0";
+  const perHundred = Number(food.nutrition[key]);
+  if (!Number.isFinite(perHundred)) return "0";
+
+  const grams = convertToGrams(food.portion?.amount ?? 0, food.portion?.unit ?? "g");
+  const rawValue = grams ? (perHundred / 100) * grams : 0;
+  const value = Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0;
+
+  if (key === "calories") {
+    return NUMBER_FORMATTERS.calories.format(Math.round(value));
+  }
+
+  const formatter = value < 10 ? NUMBER_FORMATTERS.macroSmall : NUMBER_FORMATTERS.macro;
+  return formatter.format(value);
+}
+
+/**
+ * Calcula los ángulos del anillo de macros ponderando por densidad energética.
+ */
+function computeMacroAngles(protein, carbs, fat, options = {}) {
+  const safeNumber = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+  };
+  const weights = Array.isArray(options.weights) && options.weights.length === 3 ? options.weights : [4, 4, 9];
+  const weighted = [
+    safeNumber(protein) * weights[0],
+    safeNumber(carbs) * weights[1],
+    safeNumber(fat) * weights[2],
+  ];
+  const total = weighted.reduce((sum, value) => sum + value, 0);
+  if (total === 0) {
+    return { protein: 0, carbs: 0, fat: 0 };
+  }
+  return {
+    protein: (weighted[0] / total) * 360,
+    carbs: (weighted[1] / total) * 360,
+    fat: (weighted[2] / total) * 360,
+  };
+}
+
+/**
+ * Restringe un valor al rango especificado.
+ */
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Consulta la API pública de OpenFoodFacts devolviendo productos con nutrimentos.
+ */
+async function queryOpenFoodFacts(query, limit = 5, options = {}) {
+  if (!query || !query.trim()) return [];
+  const params = new URLSearchParams({
+    search_terms: query,
+    search_simple: "1",
+    json: "1",
+    page_size: String(limit),
+  });
+  const externalSignal = options.signal;
+  const controller = externalSignal ? null : new AbortController();
+  const signal = externalSignal ?? controller.signal;
+  const timeout = externalSignal ? null : setTimeout(() => controller.abort(), 7000);
+
+  try {
+    const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, { signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!Array.isArray(data.products)) return [];
+    return data.products.filter((product) => product?.nutriments);
+  } finally {
+    if (!externalSignal && timeout) clearTimeout(timeout);
+  }
+}
+
+/**
+ * Obtiene información nutricional usando ambas fuentes disponibles.
+ */
+async function fetchNutritionData(query) {
+  if (!query) return createEmptyNutrition();
+  try {
+    const offResults = await queryOpenFoodFacts(query, 3);
+
+    if (Array.isArray(offResults) && offResults.length) {
+      return mapOpenFoodFactsNutrition(offResults[0]);
+    }
+
+    return { ...createEmptyNutrition(), source: "sin_resultados" };
+  } catch (error) {
+    console.warn("Error consultando bases nutricionales:", error);
+    return { ...createEmptyNutrition(), source: "error" };
+  }
+}
+
+/**
+ * Devuelve un objeto nutricional vacío para inicializaciones seguras.
+ */
+function createEmptyNutrition() {
+  return {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+    fiber: 0,
+    sugar: 0,
+    sodium: 0,
+    phosphorus: 0,
+    potassium: 0,
+    saturatedFat: 0,
+    glycemicLoad: 0,
+    per100g: {},
+    source: "sin datos",
+  };
+}
+
+/**
+ * Transforma un producto de OpenFoodFacts en una opción del buscador.
+ */
+function mapOffProductToSearchOption(product, index) {
+  const nutrition = mapOpenFoodFactsNutrition(product);
+  const name = (product.product_name ?? product.generic_name ?? "").trim() || nutrition.source;
+  const brand = (product.brands ?? "").split(",")[0]?.trim() || "";
+  const rawId = product.id ?? product._id ?? product.code ?? product.code_small ?? `off-${Date.now()}-${index}`;
+  return {
+    id: String(rawId),
+    name,
+    brand,
+    origin: "OpenFoodFacts",
+    nutrition,
+    product,
+  };
+}
+
+/**
+ * Extrae los valores nutricionales relevantes de un producto OpenFoodFacts.
+ */
+function mapOpenFoodFactsNutrition(product) {
+  const nutr = product.nutriments ?? {};
+  const per100g = {
+    calories: nutr["energy-kcal_value"] ?? nutr["energy-kcal_100g"] ?? 0,
+    protein: nutr["proteins_value"] ?? nutr["proteins_100g"] ?? 0,
+    carbs: nutr["carbohydrates_value"] ?? nutr["carbohydrates_100g"] ?? 0,
+    sugar: nutr["sugars_value"] ?? nutr["sugars_100g"] ?? 0,
+    fat: nutr["fat_value"] ?? nutr["fat_100g"] ?? 0,
+    saturatedFat: nutr["saturated-fat_value"] ?? nutr["saturated-fat_100g"] ?? 0,
+    fiber: nutr["fiber_value"] ?? nutr["fiber_100g"] ?? 0,
+    sodium: (nutr["sodium_value"] ?? nutr["sodium_100g"] ?? 0) * 1000,
+  };
+  const sourceLabel = [
+    (product.product_name ?? product.generic_name ?? "").trim(),
+    (product.brands ?? "").split(",")[0]?.trim() ?? "",
+  ]
+    .filter(Boolean)
+    .join(" · ") || "OpenFoodFacts";
+
+  return {
+    calories: per100g.calories,
+    protein: per100g.protein,
+    carbs: per100g.carbs,
+    fat: per100g.fat,
+    fiber: per100g.fiber,
+    sugar: per100g.sugar,
+    sodium: per100g.sodium,
+    phosphorus: 0,
+    potassium: 0,
+    saturatedFat: per100g.saturatedFat,
+    glycemicLoad: Math.round((inferGlycemicIndex(product) * per100g.carbs) / 100),
+    per100g,
+    source: sourceLabel,
+  };
+}
+
+/**
+ * Estima un índice glucémico aproximado a partir de las categorías de OFF.
+ */
+function inferGlycemicIndex(product) {
+  const categories = (product.categories_tags ?? []).join(" ").toLowerCase();
+  if (categories.includes("rice") || categories.includes("pasta")) return 60;
+  if (categories.includes("bread")) return 70;
+  if (categories.includes("vegetable")) return 20;
+  if (categories.includes("fruit")) return 45;
+  return 50;
+}
+
+/**
+ * Normaliza una cadena para comparaciones sin acentos ni signos.
+ */
+function normalizeForMatch(text) {
+  return String(text ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Divide la consulta del usuario en palabras útiles (sin caracteres aislados).
+ */
+function normalizedQueryWords(input) {
+  return normalizeForMatch(input)
+    .split(" ")
+    .filter((word) => word && word.length > 1);
+}
+
+/**
+ * Comprueba si todas las palabras buscadas aparecen en el nombre o la marca.
+ */
+function matchesNameOrBrand(words, option) {
+  if (!words?.length) return true;
+  const nameNormalized = normalizeForMatch(option.name);
+  const brandNormalized = normalizeForMatch(option.brand ?? "");
+  return words.every((word) => nameNormalized.includes(word) || brandNormalized.includes(word));
+}
+
+/**
+ * Asigna una puntuación heurística para ordenar las coincidencias del buscador.
+ */
+function scoreFoodOption(option) {
+  let score = 0;
+  if (option.origin === "OpenFoodFacts") score += 10;
+  if ((option.brand ?? "").toLowerCase().includes("sin azúcar")) score += 2;
+  return score;
+}
+
+/**
+ * Formatea cantidades pequeñas manteniendo un decimal.
+ */
+function formatSmallNumber(value) {
+  if (!Number.isFinite(value)) return "0";
+  if (value >= 10) return Math.round(value).toString();
+  return value.toFixed(1);
+}
+
+/**
+ * Muestra un aviso flotante temporal en la previsualización.
+ */
+function showOverlayMessage(message, variant = "info") {
+  if (!dom.overlayMessage) return;
+  if (overlayTimeout) clearTimeout(overlayTimeout);
+  dom.overlayMessage.textContent = message;
+  dom.overlayMessage.classList.remove("hidden", "text-amber-700", "text-accent-red", "text-brand-700");
+  if (variant === "error") {
+    dom.overlayMessage.classList.add("text-accent-red");
+  } else if (variant === "warning") {
+    dom.overlayMessage.classList.add("text-amber-700");
+  } else {
+    dom.overlayMessage.classList.add("text-brand-700");
+  }
+  overlayTimeout = setTimeout(() => hideOverlayMessage(), 4000);
+}
+
+/**
+ * Oculta el aviso flotante mostrado sobre la imagen.
+ */
+function hideOverlayMessage() {
+  if (!dom.overlayMessage) return;
+  dom.overlayMessage.classList.add("hidden");
+  dom.overlayMessage.textContent = "";
+  if (overlayTimeout) {
+    clearTimeout(overlayTimeout);
+    overlayTimeout = null;
+  }
+}
+</script>
+</body>
+
+</html>
