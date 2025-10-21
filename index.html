@@ -52,7 +52,8 @@
   <style>
     /* ---------- Base ---------- */
     :root {
-      --lap-breakpoint: 1024px; /* "portátil" */
+      --tablet-breakpoint: 554px; /* ~554px */
+      --laptop-breakpoint: 1024px; /* "portátil" */
     }
 
     body {
@@ -142,6 +143,8 @@
       display: grid;
       gap: 1.25rem;
       align-items: stretch;
+      /* Base: móviles pequeños => 1 columna */
+      grid-template-columns: 1fr;
     }
 
     .media-panel {
@@ -364,6 +367,16 @@
       box-shadow: 0 12px 24px rgba(249, 92, 39, 0.12);
     }
 
+    /* ---------- 2 columnas entre ~554px y <1024px ---------- */
+    @media (min-width: 554px) and (max-width: 1023.98px) {
+      .media-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .insights-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     /* ---------- Desktop (≥ portátil) ---------- */
     @media (min-width: 1024px) {
       .app-main {
@@ -392,22 +405,8 @@
       }
     }
 
-    /* ---------- Responsive < portátil (TODO EN COLUMNAS) ---------- */
+    /* ---------- Ajustes generales para <1024 (sin tocar nº de columnas) ---------- */
     @media (max-width: 1023.98px) {
-      .app-shell {
-        grid-template-columns: 1fr;
-      }
-
-      .profile-card-summary {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .media-row,
-      .insights-row {
-        grid-template-columns: 1fr !important;
-      }
-
       .media-panel,
       #results-area.detections-card {
         height: auto;
@@ -431,13 +430,11 @@
         width: 100%;
       }
 
-      /* Ajustes de tamaños en móviles para ahorrar espacio */
       .macro-ring {
         width: 96px;
         height: 96px;
       }
 
-      /* Controles a toda anchura cuando haya poco espacio */
       #food-form .grid.gap-2.sm\:grid-cols-2 {
         grid-template-columns: 1fr;
       }
@@ -1285,7 +1282,7 @@ async function requestVisionDetection() {
 
   state.vision.status = "loading";
   state.vision.error = null;
-  state.vision.detections = [];
+  state.vision.detections = []
 
   setFoodStatusMessage("Analizando la imagen para detectar alimentos...", "info");
   showOverlayMessage("Analizando imagen...", "info");
