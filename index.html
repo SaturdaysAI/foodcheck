@@ -50,17 +50,10 @@
   </script>
 
   <style>
-    /* ---------- Base ---------- */
-    :root {
-      --tablet-breakpoint: 554px; /* ~554px */
-      --laptop-breakpoint: 1024px; /* "portátil" */
-    }
-
     body {
       background: linear-gradient(160deg, #fff6f0 0%, #fffdf8 35%, #ffffff 100%);
       color: #1f2937;
       font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      -webkit-tap-highlight-color: transparent;
     }
 
     .app-main {
@@ -143,8 +136,6 @@
       display: grid;
       gap: 1.25rem;
       align-items: stretch;
-      /* Base: móviles pequeños => 1 columna */
-      grid-template-columns: 1fr;
     }
 
     .media-panel {
@@ -277,7 +268,6 @@
       gap: 1.25rem;
     }
 
-
     @media (max-width: 1023px) {
       .app-shell {
         display: block;
@@ -386,17 +376,6 @@
       box-shadow: 0 12px 24px rgba(249, 92, 39, 0.12);
     }
 
-    /* ---------- 2 columnas entre ~554px y <1024px ---------- */
-    @media (min-width: 554px) and (max-width: 1023.98px) {
-      .media-row {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .insights-row {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    /* ---------- Desktop (≥ portátil) ---------- */
     @media (min-width: 1024px) {
       .app-main {
         padding: 2.5rem 2.25rem 3rem;
@@ -421,45 +400,6 @@
         grid-column: span 12;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
-      }
-    }
-
-    /* ---------- Ajustes generales para <1024 (sin tocar nº de columnas) ---------- */
-    @media (max-width: 1023.98px) {
-      .media-panel,
-      #results-area.detections-card {
-        height: auto;
-        min-height: 300px;
-      }
-
-      .nutrition-content {
-        flex-direction: column;
-        align-items: stretch;
-        justify-content: flex-start;
-        gap: 1rem;
-      }
-
-      .daily-overview {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .daily-ring-wrap {
-        min-width: 0;
-        width: 100%;
-      }
-
-      .macro-ring {
-        width: 96px;
-        height: 96px;
-      }
-
-      #food-form .grid.gap-2.sm\:grid-cols-2 {
-        grid-template-columns: 1fr;
-      }
-
-      .detections-card__inner {
-        overflow: visible;
       }
     }
 
@@ -595,16 +535,6 @@
 
     .nutrient-subrow span:last-child {
       color: #334155;
-    }
-
-    /* Safe-area para móviles con notch */
-    @supports (padding: max(0px)) {
-      header .mx-auto,
-      footer .mx-auto,
-      main.app-main {
-        padding-left: max(1rem, env(safe-area-inset-left));
-        padding-right: max(1rem, env(safe-area-inset-right));
-      }
     }
   </style>
 </head>
@@ -1301,7 +1231,7 @@ async function requestVisionDetection() {
 
   state.vision.status = "loading";
   state.vision.error = null;
-  state.vision.detections = []
+  state.vision.detections = [];
 
   setFoodStatusMessage("Analizando la imagen para detectar alimentos...", "info");
   showOverlayMessage("Analizando imagen...", "info");
