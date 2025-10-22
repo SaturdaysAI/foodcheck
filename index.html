@@ -1212,89 +1212,83 @@ function handleImageReadyForDetection() {
   requestVisionDetection();
 }
 
-async function requestVisionDetection() {
-  const imageSrc = state.image?.src;
-  if (!imageSrc || typeof imageSrc !== "string" || !imageSrc.startsWith("data:image/")) {
-    return;
-  }
+  async function requestVisionDetection() {
+    const imageSrc = state.image?.src;
+    if (!imageSrc || typeof imageSrc !== "string" || !imageSrc.startsWith("data:image/")) {
+      return;
+    }
 
-  if (!VISION_CONFIG.endpoint) {
-    setFoodStatusMessage("No hay endpoint configurado para la detección automática.", "warning");
-    return;
-  }
+    if (!VISION_CONFIG.endpoint) {
+      setFoodStatusMessage("No hay endpoint configurado para la detección automática.", "warning");
+      return;
+    }
 
-  if (visionAbortController) {
-    visionAbortController.abort();
-  }
-  const controller = new AbortController();
-  visionAbortController = controller;
+    if (visionAbortController) {
+      visionAbortController.abort();
+    }
+    const controller = new AbortController();
+    visionAbortController = controller;
 
-  state.vision.status = "loading";
-  state.vision.error = null;
-  state.vision.detections = [];
+    state.vision.status = "loading";
+    state.vision.error = null;
+    state.vision.detections = [];
 
-  setFoodStatusMessage("Analizando la imagen para detectar alimentos...", "info");
-  showOverlayMessage("Analizando imagen...", "info");
+    setFoodStatusMessage("Analizando la imagen para detectar alimentos...", "info");
+    showOverlayMessage("Analizando imagen...", "info");
 
-  try {
-    const response = await fetch(VISION_CONFIG.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        imageBase64: imageSrc,
-        prompt: VISION_CONFIG.prompt,
-      }),
-      signal: controller.signal,
-    });
+    try {
+      const response = await fetch(VISION_CONFIG.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: imageSrc,
+          prompt: VISION_CONFIG.prompt,
+        }),
+        signal: controller.signal,
+      });
 
-    const rawText = await response.text();
-    let payload = null;
-    if (rawText) {
-      try {
-        payload = JSON.parse(rawText);
-      } catch (parseError) {
-        console.warn("Respuesta no JSON del proxy de visión:", parseError);
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType || !contentType.includes("application/json")) {
+        const rawText = await response.text();
+        throw new Error(`Respuesta inválida del proxy (${response.status}): ${rawText || "Sin contenido"}`);
+      }
+
+      const payload = await response.json();
+
+      const detections = sanitizeVisionDetections(extractDetectionsFromCompletion(payload));
+      state.vision.detections = detections;
+      state.vision.status = detections.length ? "ready" : "empty";
+
+      if (detections.length) {
+        const plural = detections.length === 1 ? "alimento" : "alimentos";
+        setFoodStatusMessage(`Detectamos ${detections.length} ${plural}. Buscando en OpenFoodFacts...`, "info");
+        const itemPromises = detections.map(mapVisionDetectionToFoodItem);
+        const newFoodItems = await Promise.all(itemPromises);
+        state.foodItems = newFoodItems;
+        renderFoodItems();
+        renderNutritionSummary();
+        renderDietitianSuggestions();
+        
+        setFoodStatusMessage(`Carga completada. Revisa los ${plural} y sus porciones.`, "success");
+        showOverlayMessage("Detección y carga de datos completada.", "info");
+
+      } else {
+        setFoodStatusMessage("No se detectaron alimentos. Añádelos manualmente.", "warning");
+        showOverlayMessage("No pudimos detectar alimentos automáticamente.", "warning");
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      state.vision.status = "error";
+      state.vision.error = error?.message ?? String(error);
+      setFoodStatusMessage("No se pudo analizar la imagen automáticamente. Añade los alimentos manualmente.", "warning");
+      showOverlayMessage(`Error al contactar con el asistente de visión: ${error.message}`, "error");
+      console.warn("Detección de visión fallida:", error);
+    } finally {
+      if (visionAbortController === controller) {
+        visionAbortController = null;
       }
     }
-
-    if (!response.ok) {
-      const details =
-        payload?.error ??
-        payload?.message ??
-        (typeof payload === "string" ? payload : null) ??
-        `Error ${response.status} al solicitar detecciones.`;
-      throw new Error(typeof details === "string" ? details : "Error en la detección automática.");
-    }
-
-    const detections = sanitizeVisionDetections(extractDetectionsFromCompletion(payload));
-    state.vision.detections = detections;
-    state.vision.status = detections.length ? "ready" : "empty";
-
-    if (detections.length) {
-      state.foodItems = detections.map((item, index) => mapVisionDetectionToFoodItem(item, index));
-      renderFoodItems();
-      renderNutritionSummary();
-      renderDietitianSuggestions();
-      const plural = detections.length === 1 ? "alimento" : "alimentos";
-      setFoodStatusMessage(`Detectamos ${detections.length} ${plural}. Ajusta porciones y completa la información nutricional.`, "success");
-      showOverlayMessage("Detección completada. Revisa los alimentos sugeridos.", "info");
-    } else {
-      setFoodStatusMessage("No se detectaron alimentos. Añádelos manualmente.", "warning");
-      showOverlayMessage("No pudimos detectar alimentos automáticamente.", "warning");
-    }
-  } catch (error) {
-    if (controller.signal.aborted) return;
-    state.vision.status = "error";
-    state.vision.error = error?.message ?? String(error);
-    setFoodStatusMessage("No se pudo analizar la imagen automáticamente. Añade los alimentos manualmente.", "warning");
-    showOverlayMessage("Error al contactar con el asistente de visión.", "error");
-    console.warn("Detección de visión fallida:", error);
-  } finally {
-    if (visionAbortController === controller) {
-      visionAbortController = null;
-    }
   }
-}
 
 function extractDetectionsFromCompletion(payload) {
   if (!payload) return [];
@@ -1420,41 +1414,44 @@ function sanitizeVisionDetections(rawDetections) {
     .filter(Boolean);
 }
 
-function mapVisionDetectionToFoodItem(detection, index) {
-  const nutrition = createEmptyNutrition();
-  nutrition.source = "Detección automática";
-  const portionAmount = detection.portionGrams ?? 120;
-  const amount = Math.max(10, portionAmount);
-  const details = [];
-  if (detection.cooking) {
-    details.push(`cocción: ${detection.cooking}`);
+  async function mapVisionDetectionToFoodItem(detection, index) {
+    // 1. ¡NUEVO! Buscar la nutrición en OpenFoodFacts
+    const nutrition = await fetchNutritionData(detection.name);
+
+    // 2. Preparar el resto de los detalles
+    const portionAmount = detection.portionGrams ?? 120;
+    const amount = Math.max(10, portionAmount);
+    const details = [];
+    if (detection.cooking) {
+      details.push(`cocción: ${detection.cooking}`);
+    }
+    if (typeof detection.confidence === "number") {
+      details.push(`confianza ${(detection.confidence * 100).toFixed(0)}%`);
+    }
+
+    // 3. Crear la entrada (ahora con la nutrición de OFF)
+    const entry = createFoodEntry({
+      name: detection.name,
+      amount,
+      unit: "g",
+      nutrition, // <-- ¡Usamos la nutrición de OFF!
+      brand: nutrition.source === "sin_resultados" ? details.join(" · ") : (nutrition.source ?? details.join(" · ")),
+      source: "Detección automática",
+    });
+
+    entry.source = "Detección automática";
+    entry.metadata = {
+      visionIndex: index,
+      detectionId: detection.id,
+      confidence: detection.confidence,
+      cooking: detection.cooking,
+      notes: detection.notes,
+      alternatives: detection.alternatives,
+      bbox: detection.bbox,
+    };
+
+    return entry;
   }
-  if (typeof detection.confidence === "number") {
-    details.push(`confianza ${(detection.confidence * 100).toFixed(0)}%`);
-  }
-
-  const entry = createFoodEntry({
-    name: detection.name,
-    amount,
-    unit: "g",
-    nutrition,
-    brand: details.join(" · "),
-    source: "Detección automática",
-  });
-
-  entry.source = "Detección automática";
-  entry.metadata = {
-    visionIndex: index,
-    detectionId: detection.id,
-    confidence: detection.confidence,
-    cooking: detection.cooking,
-    notes: detection.notes,
-    alternatives: detection.alternatives,
-    bbox: detection.bbox,
-  };
-
-  return entry;
-}
 
 /* ============================================================================
  * Gestión de condiciones de salud
