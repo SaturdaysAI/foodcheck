@@ -865,6 +865,13 @@ const NUMBER_FORMATTERS = {
   macroSmall: new Intl.NumberFormat("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
 };
 
+  const SYNONYM_MAP = {
+    "papa": "patata",
+    "papas": "patatas",
+    "frijol": "alubia",
+    "frijoles": "alubias",
+  };
+
 /* ============================================================================
  * FoodCheck: Estado y referencias al DOM
  * ========================================================================== */
@@ -2456,16 +2463,24 @@ function clamp(value, min, max) {
   async function fetchNutritionData(query) {
     if (!query) return createEmptyNutrition();
     
+    const normalizedQuery = normalizeForMatch(query);
+
+    const searchQuery = SYNONYM_MAP[normalizedQuery] || normalizedQuery;
+
     try {
-      const offResults = await queryOpenFoodFacts(query, 8); 
+      const offResults = await queryOpenFoodFacts(searchQuery, 15); 
 
       if (!Array.isArray(offResults) || !offResults.length) {
         return { ...createEmptyNutrition(), source: "sin_resultados" };
       }
 
-      const normalizedQuery = normalizeForMatch(query);
       const queryWords = normalizedQuery.split(' ');
       
+      const PENALTY_WORDS = [
+        'caldo', 'sopa', 'salsa', 'pure', 'preparado', 'plato', 'con', 
+        'crema', 'au', 'aux', 'en', 'receta', 'estilo', 'filete'
+      ];
+
       let bestMatch = null;
       let highestScore = -1;
 
@@ -2480,44 +2495,28 @@ function clamp(value, min, max) {
         const genericName = normalizeForMatch(product.generic_name || "");
         let score = 0;
 
-        if (genericName === normalizedQuery) {
+        const targetName = (genericName.length > 0) ? genericName : productName;
+        const targetWords = targetName.split(' ');
+
+        if (targetName === normalizedQuery || targetName === searchQuery) {
           score = 1000;
-        } else if (productName === normalizedQuery) {
-          score = 900;
-        }
-        
-        else if (genericName.includes(normalizedQuery)) {
-          // Penalizar por cada palabra extra
-          const nameWords = genericName.split(' ');
-          score = 100 - (nameWords.length - queryWords.length) * 10;
-        }
-        else if (productName.includes(normalizedQuery)) {
-          // Penalizar más duramente el nombre del producto
-          const nameWords = productName.split(' ');
-          score = 90 - (nameWords.length - queryWords.length) * 15;
-        }
-        
-        const categories = (product.categories_tags || []).join(' ').toLowerCase();
+        } else {          
+          let queryWordFound = queryWords.every(qWord => targetWords.includes(qWord));
+          let synonymWordFound = (searchQuery !== normalizedQuery) && searchQuery.split(' ').every(sWord => targetWords.includes(sWord));
 
-        if (categories.includes('sopas') || categories.includes('broths') || categories.includes('caldos')) {
-          score -= 200; // "Caldo de pollo" será penalizado
-        }
-        if (categories.includes('salsas') || categories.includes('sauces')) {
-          score -= 200;
-        }
-        if (categories.includes('platos-preparados') || categories.includes('meals')) {
-          score -= 150;
-        }
+          if (queryWordFound || synonymWordFound) {
+            score = 500;
+            score -= (targetWords.length - queryWords.length) * 20;
+          } else {
+            score = -1;
+          }
 
-
-        if (categories.includes('carnes') || categories.includes('meats') || categories.includes('aves') || categories.includes('poultry')) {
-          score += 50; // "Pechuga de pollo" recibirá un bonus
-        }
-        if (categories.includes('verduras') || categories.includes('vegetables') || categories.includes('frutas')) {
-          score += 50;
-        }
-        if (categories.includes('frescos') || categories.includes('fresh-foods')) {
-          score += 25;
+          for (const word of targetWords) {
+            if (PENALTY_WORDS.includes(word)) {
+              score -= 300;
+              break;
+            }
+          }
         }
         
         if (product.brands && product.brands.length > 0) {
@@ -2530,8 +2529,7 @@ function clamp(value, min, max) {
         }
       });
 
-      // 3. Devolvemos la mejor coincidencia encontrada
-      if (bestMatch && highestScore > 0) {
+      if (bestMatch && highestScore > 50) {
         return mapOpenFoodFactsNutrition(bestMatch);
       } else {
         return { ...createEmptyNutrition(), source: "sin_resultados" };
