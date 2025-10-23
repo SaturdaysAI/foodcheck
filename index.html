@@ -2425,30 +2425,36 @@ function clamp(value, min, max) {
 }
 
 /**
- * Consulta la API pública de OpenFoodFacts devolviendo productos con nutrimentos.
+ * Consulta la API pública de OpenFoodFacts devolviendo productos con nutrientes.
  */
-/* ============================================================================
-   * MODIFICACIÓN: Se ha añadido 'lc: "es"' para forzar la búsqueda en español
-   * y que coincida con las detecciones de la IA.
-   * ========================================================================== */
-  async function queryOpenFoodFacts(query, limit = 5, options = {}) {
+  async function queryOpenFoodFacts(query, limit = 50, options = {}) {
     if (!query || !query.trim()) return [];
+    
     const params = new URLSearchParams({
       search_terms: query,
       search_simple: "1",
       json: "1",
       page_size: String(limit),
-      lc: "es",
+      lc: "es", 
     });
+
     const externalSignal = options.signal;
     const controller = externalSignal ? null : new AbortController();
     const signal = externalSignal ?? controller.signal;
     const timeout = externalSignal ? null : setTimeout(() => controller.abort(), 7000);
 
     try {
-      const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, { signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const cfg = JSON.parse(document.getElementById("foodcheck-config").textContent);
+      const endpointBase = cfg.visionEndpoint.replace(/\/$/, "");
+      
+      const proxyUrl = `${endpointBase}/api/nutrition?${params.toString()}`;
+
+      const response = await fetch(proxyUrl, { signal });
+
+      if (!response.ok) throw new Error(`El proxy de nutrición falló: ${response.status}`);
+      
       const data = await response.json();
+      
       if (!Array.isArray(data.products)) return [];
       return data.products.filter((product) => product?.nutriments);
     } finally {
