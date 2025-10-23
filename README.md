@@ -1,5 +1,4 @@
-## FoodCheck
-
+## FoodCheck: proyecto educativo
 FoodCheck es una herramienta de análisis nutricional mediante fotos de platos. A partir de la fotografía de un plato de comida identifica los alimentos y ofrece información nutricional que proviene de la base de datos abierta OpenFoodFacts.
 
 ## Cómo probar el proyecto
@@ -14,6 +13,3 @@ FoodCheck es una herramienta de análisis nutricional mediante fotos de platos. 
 - Resumen diario de macronutrientes y registro histórico local.
 - Asistente dietista virtual que da sugerencias según el análisis del plato.
 - Toda la información se guarda en `localStorage`; no es necesario un backend.
-
-## Estado actual del proyecto
-- Actualmente, el modelo de detección no detecta correctamente los alimentos, por lo que la funcionalidad de análisis nutricional está en desarrollo.
