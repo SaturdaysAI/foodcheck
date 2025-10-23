@@ -2464,21 +2464,18 @@ function clamp(value, min, max) {
     if (!query) return createEmptyNutrition();
     
     const normalizedQuery = normalizeForMatch(query);
-
     const searchQuery = SYNONYM_MAP[normalizedQuery] || normalizedQuery;
 
     try {
-      const offResults = await queryOpenFoodFacts(searchQuery, 15); 
+      const offResults = await queryOpenFoodFacts(searchQuery, 40); 
 
       if (!Array.isArray(offResults) || !offResults.length) {
         return { ...createEmptyNutrition(), source: "sin_resultados" };
       }
 
-      const queryWords = normalizedQuery.split(' ');
-      
       const PENALTY_WORDS = [
-        'caldo', 'sopa', 'salsa', 'pure', 'preparado', 'plato', 'con', 
-        'crema', 'au', 'aux', 'en', 'receta', 'estilo', 'filete'
+        'caldo', 'sopa', 'salsa', 'pure', 'preparado', 'plato', 
+        'crema', 'au', 'aux', 'receta', 'estilo', 'sazonador'
       ];
 
       let bestMatch = null;
@@ -2498,27 +2495,38 @@ function clamp(value, min, max) {
         const targetName = (genericName.length > 0) ? genericName : productName;
         const targetWords = targetName.split(' ');
 
-        if (targetName === normalizedQuery || targetName === searchQuery) {
-          score = 1000;
-        } else {          
-          let queryWordFound = queryWords.every(qWord => targetWords.includes(qWord));
-          let synonymWordFound = (searchQuery !== normalizedQuery) && searchQuery.split(' ').every(sWord => targetWords.includes(sWord));
-
-          if (queryWordFound || synonymWordFound) {
-            score = 500;
-            score -= (targetWords.length - queryWords.length) * 20;
-          } else {
-            score = -1;
-          }
-
-          for (const word of targetWords) {
-            if (PENALTY_WORDS.includes(word)) {
-              score -= 300;
-              break;
-            }
+        for (const word of targetWords) {
+          if (PENALTY_WORDS.includes(word)) {
+            score = -1000; // Descalificado
+            break; 
           }
         }
-        
+
+        if (score === -1000) {
+          if (score > highestScore) {
+             highestScore = score;
+             bestMatch = product;
+          }
+          return; 
+        }
+
+        if (targetName === searchQuery) {
+          score = 1000;
+        } 
+
+        else if (targetName === normalizedQuery) {
+          score = 900;
+        }
+
+        else if (targetWords.includes(normalizedQuery)) {
+          score = 500;
+          score -= (targetWords.length - 1) * 50; 
+        }
+        else if (targetWords.includes(searchQuery)) {
+          score = 400;
+          score -= (targetWords.length - 1) * 50;
+        }
+
         if (product.brands && product.brands.length > 0) {
           score -= 10; 
         }
@@ -2529,7 +2537,7 @@ function clamp(value, min, max) {
         }
       });
 
-      if (bestMatch && highestScore > 50) {
+      if (bestMatch && highestScore > 100) { 
         return mapOpenFoodFactsNutrition(bestMatch);
       } else {
         return { ...createEmptyNutrition(), source: "sin_resultados" };
