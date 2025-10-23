@@ -2457,43 +2457,71 @@ function clamp(value, min, max) {
     if (!query) return createEmptyNutrition();
     
     try {
-      const offResults = await queryOpenFoodFacts(query, 10); 
+      const offResults = await queryOpenFoodFacts(query, 8); 
 
       if (!Array.isArray(offResults) || !offResults.length) {
         return { ...createEmptyNutrition(), source: "sin_resultados" };
       }
 
       const normalizedQuery = normalizeForMatch(query);
+      const queryWords = normalizedQuery.split(' ');
+      
       let bestMatch = null;
-      let highestScore = -1; // Empezamos en negativo
+      let highestScore = -1;
 
       offResults.forEach(product => {
+        const nutr = product.nutriments ?? {};
+        const calories = nutr["energy-kcal_value"] ?? nutr["energy-kcal_100g"] ?? 0;
+        if (!calories || calories <= 0) {
+          return;
+        }
+        
         const productName = normalizeForMatch(product.product_name || "");
         const genericName = normalizeForMatch(product.generic_name || "");
         let score = 0;
 
         if (genericName === normalizedQuery) {
           score = 1000;
-        } 
-        else if (productName === normalizedQuery) {
+        } else if (productName === normalizedQuery) {
           score = 900;
         }
-
+        
         else if (genericName.includes(normalizedQuery)) {
-          score = 100 - genericName.length;
+          // Penalizar por cada palabra extra
+          const nameWords = genericName.split(' ');
+          score = 100 - (nameWords.length - queryWords.length) * 10;
         }
-
         else if (productName.includes(normalizedQuery)) {
-          score = 90 - productName.length;
+          // Penalizar más duramente el nombre del producto
+          const nameWords = productName.split(' ');
+          score = 90 - (nameWords.length - queryWords.length) * 15;
         }
         
+        const categories = (product.categories_tags || []).join(' ').toLowerCase();
 
-        if (product.brands && product.brands.length > 0) {
-          score -= 5; 
+        if (categories.includes('sopas') || categories.includes('broths') || categories.includes('caldos')) {
+          score -= 200; // "Caldo de pollo" será penalizado
+        }
+        if (categories.includes('salsas') || categories.includes('sauces')) {
+          score -= 200;
+        }
+        if (categories.includes('platos-preparados') || categories.includes('meals')) {
+          score -= 150;
         }
 
-        if (productName.split(' ').length > (normalizedQuery.split(' ').length + 2)) {
-           score -= 50;
+
+        if (categories.includes('carnes') || categories.includes('meats') || categories.includes('aves') || categories.includes('poultry')) {
+          score += 50; // "Pechuga de pollo" recibirá un bonus
+        }
+        if (categories.includes('verduras') || categories.includes('vegetables') || categories.includes('frutas')) {
+          score += 50;
+        }
+        if (categories.includes('frescos') || categories.includes('fresh-foods')) {
+          score += 25;
+        }
+        
+        if (product.brands && product.brands.length > 0) {
+          score -= 10; 
         }
 
         if (score > highestScore) {
@@ -2502,7 +2530,7 @@ function clamp(value, min, max) {
         }
       });
 
-
+      // 3. Devolvemos la mejor coincidencia encontrada
       if (bestMatch && highestScore > 0) {
         return mapOpenFoodFactsNutrition(bestMatch);
       } else {
