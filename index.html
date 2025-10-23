@@ -2445,23 +2445,70 @@ async function queryOpenFoodFacts(query, limit = 5, options = {}) {
 }
 
 /**
- * Obtiene información nutricional usando ambas fuentes disponibles.
+ * Obtiene información nutricional la fuente disponible. Filtra y puntúa los resultados de OFF
+ * para encontrar el ingrediente base en lugar de un producto procesado.
  */
-async function fetchNutritionData(query) {
-  if (!query) return createEmptyNutrition();
-  try {
-    const offResults = await queryOpenFoodFacts(query, 3);
+  async function fetchNutritionData(query) {
+    if (!query) return createEmptyNutrition();
+    
+    try {
+      const offResults = await queryOpenFoodFacts(query, 10); 
 
-    if (Array.isArray(offResults) && offResults.length) {
-      return mapOpenFoodFactsNutrition(offResults[0]);
+      if (!Array.isArray(offResults) || !offResults.length) {
+        return { ...createEmptyNutrition(), source: "sin_resultados" };
+      }
+
+      const normalizedQuery = normalizeForMatch(query);
+      let bestMatch = null;
+      let highestScore = -1; // Empezamos en negativo
+
+      offResults.forEach(product => {
+        const productName = normalizeForMatch(product.product_name || "");
+        const genericName = normalizeForMatch(product.generic_name || "");
+        let score = 0;
+
+        if (genericName === normalizedQuery) {
+          score = 1000;
+        } 
+        else if (productName === normalizedQuery) {
+          score = 900;
+        }
+
+        else if (genericName.includes(normalizedQuery)) {
+          score = 100 - genericName.length;
+        }
+
+        else if (productName.includes(normalizedQuery)) {
+          score = 90 - productName.length;
+        }
+        
+
+        if (product.brands && product.brands.length > 0) {
+          score -= 5; 
+        }
+
+        if (productName.split(' ').length > (normalizedQuery.split(' ').length + 2)) {
+           score -= 50;
+        }
+
+        if (score > highestScore) {
+          highestScore = score;
+          bestMatch = product;
+        }
+      });
+
+
+      if (bestMatch && highestScore > 0) {
+        return mapOpenFoodFactsNutrition(bestMatch);
+      } else {
+        return { ...createEmptyNutrition(), source: "sin_resultados" };
+      }
+
+    } catch (error) {
+      console.warn("Error consultando bases nutricionales:", error);
+      return { ...createEmptyNutrition(), source: "error" };
     }
-
-    return { ...createEmptyNutrition(), source: "sin_resultados" };
-  } catch (error) {
-    console.warn("Error consultando bases nutricionales:", error);
-    return { ...createEmptyNutrition(), source: "error" };
   }
-}
 
 /**
  * Devuelve un objeto nutricional vacío para inicializaciones seguras.
