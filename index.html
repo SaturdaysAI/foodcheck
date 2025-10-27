@@ -1425,12 +1425,13 @@ function sanitizeVisionDetections(rawDetections) {
     })
     .filter(Boolean);
 }
-
+    
+/* ============================================================================
+ * Relación de alimentos detectados con alimentos de OpenFoodFacts
+ * ========================================================================== */
   async function mapVisionDetectionToFoodItem(detection, index) {
-    // 1. ¡NUEVO! Buscar la nutrición en OpenFoodFacts
     const nutrition = await fetchNutritionData(detection.name);
 
-    // 2. Preparar el resto de los detalles
     const portionAmount = detection.portionGrams ?? 120;
     const amount = Math.max(10, portionAmount);
     const details = [];
@@ -1441,12 +1442,11 @@ function sanitizeVisionDetections(rawDetections) {
       details.push(`confianza ${(detection.confidence * 100).toFixed(0)}%`);
     }
 
-    // 3. Crear la entrada (ahora con la nutrición de OFF)
     const entry = createFoodEntry({
       name: detection.name,
       amount,
       unit: "g",
-      nutrition, // <-- ¡Usamos la nutrición de OFF!
+      nutrition,
       brand: nutrition.source === "sin_resultados" ? details.join(" · ") : (nutrition.source ?? details.join(" · ")),
       source: "Detección automática",
     });
@@ -2200,7 +2200,7 @@ function renderProgressRow(label, value, goal, unit) {
 }
 
 /**
- * Dibuja el anillo diario mostrando la cuota calórica de cada macronutriente.
+ * Dibuja el anillo diario mostrando el porcentaje calórico de cada macronutriente.
  */
 function updateDailyMacroRing(totals) {
   if (!dom.dailyMacroRing) return;
